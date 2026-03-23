@@ -3,18 +3,21 @@ import pandas as pd
 import io
 from openai import OpenAI
 import os
+
 # 1. 页面配置与标题
 st.set_page_config(page_title="AI 营销数据洞察助手", page_icon="📈", layout="wide")
 st.title("📈 AI 营销数据洞察助手 (Demo版)")
 st.markdown("上传您的营销数据（CSV/Excel），AI 将自动帮您找出核心问题并提供优化建议。")
 
-# 核心修改：从环境变量读取API Key，不写死在代码里
+# --- 核心修改1：兼容本地测试和云端部署 ---
+# 如果在本地测试，把你的 sk- 密钥写在逗号后面的引号里
+# 部署到云端时，它会自动优先读取云端的环境变量
+api_key = os.environ.get("OPENAI_API_KEY", "你的sk-开头的真实密钥放这里用于本地测试")
+
 client = OpenAI(
-    api_key=os.environ.get("OPENAI_API_KEY"),  # 关键行
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"  # 通义千问的兼容地址，不用改
+    api_key=api_key, 
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1" 
 )
-
-
 
 # --- 内置的示例数据 ---
 SAMPLE_CSV = """日期,广告计划,投放渠道,花费(元),展现量,点击量,转化量,实际销售额(元)
@@ -28,32 +31,38 @@ SAMPLE_CSV = """日期,广告计划,投放渠道,花费(元),展现量,点击量
 2023-10-27,竞品词_核心,百度搜索,5000,21000,1750,115,41000
 2023-10-27,冲量_定向,抖音信息流,35000,1500000,18000,180,32000"""
 
+
+# --- 核心修改2：初始化 Streamlit 记忆体 ---
+if "df" not in st.session_state:
+    st.session_state.df = None
+
+
 # 3. 数据来源选择：上传 or 示例
-df = None
 col1, col2 = st.columns([1, 2])
 with col1:
     use_demo = st.button("✨ 一键使用示例数据体验")
 with col2:
     uploaded_file = st.file_uploader("或者上传您自己的数据 (CSV 格式)", type=["csv", "xlsx"])
 
+# 只要点过按钮，就把数据存入“记忆体”中
 if use_demo:
-    df = pd.read_csv(io.StringIO(SAMPLE_CSV))
-    st.info("当前正在使用内置的【双十一营销测试数据】")
+    st.session_state.df = pd.read_csv(io.StringIO(SAMPLE_CSV))
 elif uploaded_file is not None:
     if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
+        st.session_state.df = pd.read_csv(uploaded_file)
     else:
-        df = pd.read_excel(uploaded_file)
+        st.session_state.df = pd.read_excel(uploaded_file)
 
-# 4. 如果有数据，则展示分析界面
-if df is not None:
+# 4. 从“记忆体”中读取数据展示
+if st.session_state.df is not None:
+    df = st.session_state.df # 把记忆体里的数据拿出来用
+    
     st.write("---")
     st.write("### 📊 数据预览")
     st.dataframe(df.head()) 
     
     st.write("### 📉 实际销售额趋势分析")
     try:
-        # 画图：如果有多渠道，按渠道拆分画线会更好看，这里做简单处理
         st.line_chart(df.set_index('日期')['实际销售额(元)']) 
     except Exception as e:
         st.write("提示：当前数据格式不支持生成折线图。")
