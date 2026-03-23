@@ -434,7 +434,15 @@ logo_placeholder.image(logo_map[selected_platform], width=120)
 # 加载数据
 with st.spinner(f"正在抽取 {selected_platform} 全域业务数据..."):
     df = load_and_enhance_data(selected_platform)
+# 基于真实订单数，反推（模拟）出流量和漏斗数据，让演示显得真实完整
+real_orders = len(df)
+real_gmv = df['消费金额'].sum()
+mock_uv = real_orders * np.random.randint(15, 25)  # 假设转化率在 4%-6%
+mock_pv = mock_uv * 3.5
+mock_cart = int(mock_uv * 0.3)
 
+st.sidebar.write("---")
+st.sidebar.success(f"✅ {selected_platform} 数据接入正常\n共加载 {real_orders:,} 笔真实交易。")
 
 # ==========================================
 # 5. UI 布局：四大业务模块 Tab 切换
