@@ -2,17 +2,19 @@ import streamlit as st
 import pandas as pd
 import io
 from openai import OpenAI
-
+import os
 # 1. 页面配置与标题
 st.set_page_config(page_title="AI 营销数据洞察助手", page_icon="📈", layout="wide")
 st.title("📈 AI 营销数据洞察助手 (Demo版)")
 st.markdown("上传您的营销数据（CSV/Excel），AI 将自动帮您找出核心问题并提供优化建议。")
 
-# 2. 初始化大模型客户端
+# 核心修改：从环境变量读取API Key，不写死在代码里
 client = OpenAI(
-    api_key="sk-0e14c69e7b4946cfa2794b460397a430",
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key=os.environ.get("OPENAI_API_KEY"),  # 关键行
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"  # 通义千问的兼容地址，不用改
 )
+
+
 
 # --- 内置的示例数据 ---
 SAMPLE_CSV = """日期,广告计划,投放渠道,花费(元),展现量,点击量,转化量,实际销售额(元)
