@@ -411,12 +411,12 @@ def load_and_enhance_data(platform_name):
 # ==========================================
 # 建立一个“字典”，映射各大平台的真实高清 Logo 地址
 logo_map = {
-    "淘宝": "https://upload.wikimedia.org/wikipedia/en/thumb/0/05/Taobao_logo.svg/320px-Taobao_logo.svg.png",
-    "天猫": "https://upload.wikimedia.org/wikipedia/en/thumb/8/8b/Tmall_logo.svg/320px-Tmall_logo.svg.png",
-    "京东": "https://upload.wikimedia.org/wikipedia/en/thumb/b/b3/JD.com_logo.svg/320px-JD.com_logo.svg.png",
-    "拼多多": "https://upload.wikimedia.org/wikipedia/en/thumb/4/43/Pinduoduo_logo.svg/320px-Pinduoduo_logo.svg.png",
+    "淘宝": "https://img.alicdn.com/tfs/TB1R5aqbgMPMeJjy1XbXXcwxVXa-205-71.png",
+    "天猫": "https://img.alicdn.com/tfs/TB1.bTRbQyWBuNjy0FpXXassXXa-230-68.png",
+    "京东": "https://misc.360buyimg.com/lib/img/e/logo-201305-b.png",
+    "拼多多": "https://img.alicdn.com/tfs/TB1_uT8a5ERMeJjSspiXXbZLFXa-143-59.png", # 拼多多官方图床有极强的防盗链，暂用默认电商Logo替代
     "1688": "https://gw.alicdn.com/tfs/TB11nQZqYr1gK0jSZR0XXbP8XXa-280-80.png",
-    "苏宁": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Suning_logo.svg/320px-Suning_logo.svg.png"
+    "苏宁": "https://image2.suning.cn/uimg/cms/img/161293952044820614.png"
 }
 
 # 技巧：先在侧边栏最顶端生成一个“隐形的空位”
