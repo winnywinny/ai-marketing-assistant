@@ -191,143 +191,145 @@
 #                 st.error(f"调用 AI 失败，错误信息：{e}")
 
 
-
-
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
 import os
-import io
+import plotly.express as px  # 引入超强绘图神器
 
-# ==========================================
-# 1. 页面全局配置 (宽屏模式，更像大厂后台)
-# ==========================================
-st.set_page_config(page_title="电商智能数据洞察中台", page_icon="🛒", layout="wide")
+# 1. 页面配置 (开启宽屏模式，让图表更大气)
+st.set_page_config(page_title="企业级电商数据洞察助手", page_icon="🛒", layout="wide")
+st.title("🛒 企业零售海量数据 AI 洞察平台")
+st.markdown("支持批量上传原始订单流水，系统将自动清洗、聚合数据，并生成**可交互的BI看板**与 AI 专家诊断。")
 
-# 初始化 AI 客户端
-api_key = os.environ.get("OPENAI_API_KEY", "你的sk-开头的真实密钥放这里用于本地测试")
+# 2. 初始化大模型客户端
+api_key = os.environ.get("OPENAI_API_KEY", "sk-cdc57fd44a394cea8ec25dd4ad2512f7")
 client = OpenAI(
     api_key=api_key, 
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1" 
+    base_url="https://ws-vvr85dv3ndbxfxtu.ap-southeast-1.maas.aliyuncs.com/compatible-model/v1" 
 )
 
-# ==========================================
-# 2. 侧边栏设计 (控制面板)
-# ==========================================
-with st.sidebar:
-    st.title("⚙️ 控制面板")
-    st.markdown("请选择您要分析的数据源，或者上传自有数据。")
-    
-    # 选项卡：让面试官随意切换平台
-    data_source = st.radio(
-        "📌 选择数据来源",
-        ("🛒 淘宝 (模拟案例)", "🐶 京东 (模拟案例)", "💖 拼多多 (模拟案例)", "📁 自定义上传 CSV")
-    )
-    
-    uploaded_file = None
-    if data_source == "📁 自定义上传 CSV":
-        uploaded_file = st.file_uploader("请拖拽上传您的电商流水", type=["csv"])
+# --- 核心黑科技：加入数据缓存，提速10倍！ ---
+@st.cache_data
+def process_data(uploaded_files):
+    df_list = []
+    for file in uploaded_files:
+        try:
+            temp_df = pd.read_csv(file, encoding='utf-8')
+        except UnicodeDecodeError:
+            temp_df = pd.read_csv(file, encoding='gbk')
+        df_list.append(temp_df)
         
-    st.markdown("---")
-    st.caption("✨ Powered by 阿里云通义大模型 & Streamlit")
-
-# ==========================================
-# 3. 数据加载与预处理核心逻辑
-# ==========================================
-df = None
-
-# 根据侧边栏的选择加载对应的数据
-try:
-    if data_source == "🛒 淘宝 (模拟案例)":
-        df = pd.read_csv("淘宝.csv") # 读取你本地文件夹里的同名文件
-    elif data_source == "🐶 京东 (模拟案例)":
-        df = pd.read_csv("京东.csv")
-    elif data_source == "💖 拼多多 (模拟案例)":
-        df = pd.read_csv("拼多多.csv")
-    elif data_source == "📁 自定义上传 CSV" and uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-except FileNotFoundError:
-    st.error(f"⚠️ 找不到文件！请确保 {data_source[3:5]}.csv 和 app.py 在同一个文件夹内。")
-
-# ==========================================
-# 4. 主界面展示 (仪表盘与图表)
-# ==========================================
-st.title("🛒 电商全链路智能洞察中台")
-
-if df is not None:
-    # --- 数据清洗 ---
+    df = pd.concat(df_list, ignore_index=True)
     df['购买时间'] = pd.to_datetime(df['购买时间'])
     df['日期'] = df['购买时间'].dt.date
+    return df
+
+# 3. 数据上传模块
+uploaded_files = st.file_uploader("📂 请批量上传订单流水数据 (CSV格式)", type=["csv"], accept_multiple_files=True)
+
+if uploaded_files:
+    with st.spinner("⏳ 正在清洗合并海量数据..."):
+        # 调用缓存的数据处理函数
+        df = process_data(uploaded_files)
     
-    # --- 顶部核心指标卡片 (大字报) ---
-    total_gmv = df['消费金额'].sum()
-    total_orders = len(df)
-    avg_price = total_gmv / total_orders if total_orders > 0 else 0
-    top_city = df.groupby('用户城市')['消费金额'].sum().idxmax()
+    st.success(f"✅ 数据合并清洗完成！共处理 **{len(df):,}** 条底层交易流水。")
     
-    # 使用 4 列布局展示指标
+    # ==========================================
+    # 🎨 4. 高级绚丽 BI 看板 (Plotly驱动)
+    # ==========================================
+    st.write("---")
+    st.write("### 📊 核心业务可视化大屏")
+    
+    # 顶部核心指标 KPI 卡片
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 总销售额 (GMV)", f"¥ {total_gmv:,.2f}")
-    col2.metric("📦 总订单量", f"{total_orders:,} 笔")
-    col3.metric("🎫 平均客单价", f"¥ {avg_price:,.2f}")
-    col4.metric("🏙️ 消费最强城市", top_city)
+    col1.metric("💰 总销售额 (元)", f"¥ {df['消费金额'].sum():,.2f}")
+    col2.metric("📦 总订单数", f"{len(df):,}")
+    col3.metric("🛍️ 销售商品总件数", f"{df['购买数量'].sum():,}")
+    col4.metric("💳 客单价 (元)", f"¥ {(df['消费金额'].sum() / len(df)):,.2f}")
+
+    st.markdown("<br>", unsafe_allow_html=True) # 加点空行
+
+    # 图表第一排：趋势图 + 饼图
+    chart_col1, chart_col2 = st.columns([6, 4]) # 6:4 比例分配宽度
     
-    st.markdown("---")
+    with chart_col1:
+        # 📈 渐变面积趋势图
+        daily_sales = df.groupby('日期')['消费金额'].sum().reset_index()
+        fig_trend = px.area(daily_sales, x='日期', y='消费金额', 
+                            title="📈 每日营收趋势 (面积图)", 
+                            markers=True, 
+                            color_discrete_sequence=['#00C698']) # 清爽的翠绿色
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+    with chart_col2:
+        # 🍩 多彩环形饼图
+        category_sales = df.groupby('商品类别')['消费金额'].sum().reset_index()
+        fig_pie = px.pie(category_sales, names='商品类别', values='消费金额', 
+                         hole=0.4, # 变成中间空心的环形图
+                         title="🛍️ 商品类别营收占比")
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    # 图表第二排：条形图 + 用户画像
+    chart_col3, chart_col4 = st.columns([5, 5])
     
-    # --- 多标签页设计 (图表、数据、AI洞察 分开展示) ---
-    tab1, tab2, tab3 = st.tabs(["📊 数据可视化大屏", "🗂️ 底层流水明细", "🤖 AI 深度诊断报告"])
+    with chart_col3:
+        # 🏙️ 动态多色彩色条形图
+        city_sales = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=True).tail(10).reset_index() # 取Top10并倒序让最高的在上面
+        fig_city = px.bar(city_sales, x='消费金额', y='用户城市', orientation='h', 
+                          color='消费金额', # 根据金额自动渐变上色
+                          color_continuous_scale=px.colors.sequential.Sunset, # 晚霞渐变色
+                          title="🏙️ 营收贡献 TOP 10 城市")
+        st.plotly_chart(fig_city, use_container_width=True)
+
+    with chart_col4:
+        # 👥 年龄与性别分布直方图
+        fig_demo = px.histogram(df, x='用户年龄', color='用户性别', 
+                                nbins=20, barmode='group',
+                                color_discrete_map={'男': '#3498db', '女': '#e74c3c'}, # 经典红蓝配色
+                                title="👥 用户人群画像 (年龄与性别)")
+        st.plotly_chart(fig_demo, use_container_width=True)
+
+    # ==========================================
+    # 🧠 5. AI 业务诊断模块
+    # ==========================================
+    st.write("---")
+    st.write("### 🧠 AI 零售数据总监深度报告")
     
-    with tab1:
-        chart_col1, chart_col2 = st.columns(2)
-        with chart_col1:
-            st.subheader("📈 每日销售额走势")
-            daily_sales = df.groupby('日期')['消费金额'].sum()
-            st.line_chart(daily_sales)
-        with chart_col2:
-            st.subheader("📦 各大品类销售排行")
-            category_sales = df.groupby('商品类别')['消费金额'].sum().sort_values(ascending=True)
-            st.bar_chart(category_sales)
+    # 提前生成 AI 需要的数据摘要
+    city_str = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=False).head(5).to_string()
+    cat_str = df.groupby('商品类别')['消费金额'].sum().sort_values(ascending=False).to_string()
+    gender_str = df.groupby('用户性别')['消费金额'].sum().to_string()
+
+    if st.button("✨ 一键生成深度商业诊断 ✨"):
+        with st.spinner("AI 正在深度思考业务逻辑..."):
+            summary_text = f"""
+            总体表现：总销售额 {df['消费金额'].sum():.2f} 元，共 {len(df)} 笔订单。
+            品类表现摘要：\n{cat_str}
+            城市表现前五名：\n{city_str}
+            男女消费占比：\n{gender_str}
+            """
             
-    with tab2:
-        st.subheader("🗂️ 原始订单流水 (前 100 条)")
-        st.dataframe(df.head(100), use_container_width=True)
-        
-    with tab3:
-        st.subheader("🤖 一键生成业务报告")
-        st.info("💡 点击下方按钮，AI 将结合左侧选择的平台特性及当前数据，为您生成专属的运营优化方案。")
-        
-        if st.button("✨ 召唤 AI 总监生成报告", type="primary"): # type="primary" 让按钮变成醒目的红色/蓝色
-            with st.spinner("AI 正在深度剖析多维数据中，请稍候..."):
-                top_category = category_sales.index[-1]
-                avg_age = df['用户年龄'].mean()
-                gender_ratio = df['用户性别'].value_counts().to_dict()
-                
-                prompt = f"""
-                你是一位资深的电商平台运营总监。当前分析的平台是：{data_source}。
-                以下是近期的真实订单数据摘要：
-                - 总GMV: {total_gmv:.2f} 元，总订单量: {total_orders} 笔，客单价: {avg_price:.2f} 元
-                - 最畅销品类: {top_category}
-                - 消费主力城市: {top_city}
-                - 消费者平均年龄: {avg_age:.1f} 岁，男女比例: {gender_ratio}
-                
-                请结合【{data_source}】这个平台的固有特性（例如淘宝重丰富度、京东重物流和3C、拼多多重下沉市场等），给出：
-                1. 当前业绩与用户画像的一句话精准总结。
-                2. 针对该平台特性的异常点诊断（比如客单价是否符合该平台调性）。
-                3. 下一步的“选品拓流”与“精准营销”实操建议（分点列出）。
-                """
-                
-                try:
-                    response = client.chat.completions.create(
-                        model="qwen-plus",
-                        messages=[
-                            {"role": "system", "content": "你是一个专业、犀利的电商数据专家，输出Markdown格式，条理清晰，多用emoji。"},
-                            {"role": "user", "content": prompt}
-                        ]
-                    )
-                    st.success("✅ 报告生成完毕！")
-                    st.markdown(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"调用 AI 失败，错误信息：{e}")
-else:
-    # 当还没有数据时，在主界面显示提示
-    st.info("👈 请在左侧边栏选择一个模拟案例平台，或上传您的专属 CSV 数据文件。")
+            prompt = f"""
+            你是一位顶级的电商零售数据分析总监。请根据以下浓缩的脱敏数据摘要，写一份极具深度的业务诊断报告：
+            【数据摘要】：\n{summary_text}\n
+            请严格按照以下结构输出（使用 Markdown，加上 emoji）：
+            1. **大盘诊断**：评价总体业绩与客单价。
+            2. **爆款与品类洞察**：指出核心品类和需要优化的长尾品类。
+            3. **高价值人群画像**：从性别、城市维度描绘核心利润人群。
+            4. **下一步行动建议**：给出至少 3 条落地性极强的营销/备货策略。
+            """
+            
+            try:
+                response = client.chat.completions.create(
+                    model="qwen-plus",
+                    messages=[
+                        {"role": "system", "content": "你是一个用数据说话、眼光毒辣的商业顾问。语言风格专业、简练。"},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                st.success("✅ 诊断报告已生成！")
+                st.markdown(response.choices[0].message.content)
+            except Exception as e:
+                st.error(f"调用 AI 失败，请检查网络或配置。错误详情：{e}")
