@@ -406,26 +406,34 @@ def load_and_enhance_data(platform_name):
     return df
 
 # ==========================================
-# 4. 侧边栏：多平台切换 Demo
 # ==========================================
-st.sidebar.image("https://img.alicdn.com/tfs/TB1_uT8a5ERMeJjSspiXXbZLFXa-143-59.png", width=100) # 示意Logo
+# 4. 侧边栏：多平台切换 Demo (动态联动 Logo 升级版)
+# ==========================================
+# 建立一个“字典”，映射各大平台的真实高清 Logo 地址
+logo_map = {
+    "淘宝": "https://upload.wikimedia.org/wikipedia/en/thumb/0/05/Taobao_logo.svg/320px-Taobao_logo.svg.png",
+    "天猫": "https://upload.wikimedia.org/wikipedia/en/thumb/8/8b/Tmall_logo.svg/320px-Tmall_logo.svg.png",
+    "京东": "https://upload.wikimedia.org/wikipedia/en/thumb/b/b3/JD.com_logo.svg/320px-JD.com_logo.svg.png",
+    "拼多多": "https://upload.wikimedia.org/wikipedia/en/thumb/4/43/Pinduoduo_logo.svg/320px-Pinduoduo_logo.svg.png",
+    "1688": "https://gw.alicdn.com/tfs/TB11nQZqYr1gK0jSZR0XXbP8XXa-280-80.png",
+    "苏宁": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Suning_logo.svg/320px-Suning_logo.svg.png"
+}
+
+# 技巧：先在侧边栏最顶端生成一个“隐形的空位”
+logo_placeholder = st.sidebar.empty() 
+
 st.sidebar.header("🎯 经营大盘控制台")
 platforms = ["淘宝", "天猫", "京东", "拼多多", "1688", "苏宁"]
-selected_platform = st.sidebar.radio("一键切换分析平台 (Demo)", platforms)
+
+# 捕捉用户的选择
+selected_platform = st.sidebar.radio("一键切换分析平台", platforms)
+
+# 根据用户的选择，把对应的 Logo 塞进刚才留好的空位里
+logo_placeholder.image(logo_map[selected_platform], width=120)
 
 # 加载数据
 with st.spinner(f"正在抽取 {selected_platform} 全域业务数据..."):
     df = load_and_enhance_data(selected_platform)
-
-# 基于真实订单数，反推（模拟）出流量和漏斗数据，让演示显得真实完整
-real_orders = len(df)
-real_gmv = df['消费金额'].sum()
-mock_uv = real_orders * np.random.randint(15, 25)  # 假设转化率在 4%-6%
-mock_pv = mock_uv * 3.5
-mock_cart = int(mock_uv * 0.3)
-
-st.sidebar.write("---")
-st.sidebar.success(f"✅ {selected_platform} 数据接入正常\n共加载 {real_orders:,} 笔真实交易。")
 
 
 # ==========================================
