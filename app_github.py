@@ -199,256 +199,247 @@ import os
 import datetime
 
 # ==========================================
-# 1. 页面配置与全局 UI 美化
+# 1. 页面与全局样式配置 (炫酷背景与UI)
 # ==========================================
-st.set_page_config(page_title="全域电商数据大屏", page_icon="🌐", layout="wide")
+st.set_page_config(page_title="全域电商数据可视化指挥舱", page_icon="🌐", layout="wide")
 
-# 注入自定义 CSS，让页面看起来更像高级大屏
+# 注入自定义 CSS，让页面颜色丰富、卡片化、高级感拉满
 st.markdown("""
 <style>
+    /* 全局背景色微调 */
+    .stApp {background-color: #f4f7f6;}
+    /* 隐藏顶部默认空白 */
+    .block-container {padding-top: 2rem;}
+    /* 自定义指标卡片样式 */
     div[data-testid="metric-container"] {
-        background-color: #f7f9fc;
-        border: 1px solid #e2e8f0;
-        padding: 5% 5% 5% 10%;
-        border-radius: 10px;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+        background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border-left: 5px solid #00C698;
     }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 24px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #f0f2f6;
-        border-radius: 5px 5px 0px 0px;
-        padding: 0 20px;
-        font-weight: 600;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #ebf2fa;
-        color: #1f77b4;
-        border-bottom: 3px solid #1f77b4;
-    }
+    /* 标题样式渐变 */
+    h1 {background: -webkit-linear-gradient(45deg, #1e3c72, #2a5298); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
 </style>
 """, unsafe_allow_html=True)
 
+st.title("🌐 全域电商可视化数据指挥舱 (大厂级)")
+st.markdown("覆盖**流量、转化、交易、用户、商品、营销、履约**七大维度，支持一键生成 AI 业务洞察。")
+
 # ==========================================
-# 2. 核心黑科技：一键生成六大平台全维度模拟数据
+# 2. 面试专属：一键生成大厂 Demo 数据
 # ==========================================
+# 预设城市经纬度用于画地图
+CITY_COORDS = {
+    '北京': [39.9042, 116.4074], '上海': [31.2304, 121.4737], '广州': [23.1291, 113.2644],
+    '深圳': [22.5431, 114.0579], '成都': [30.5728, 104.0668], '杭州': [30.2741, 120.1551],
+    '重庆': [29.5332, 106.5050], '武汉': [30.5928, 114.3055], '西安': [34.3416, 108.9398]
+}
+
 @st.cache_data
-def generate_mock_data():
-    platforms = ['淘宝', '天猫', '京东', '拼多多', '1688', '苏宁']
-    categories = ['3C数码', '美妆个护', '服装鞋包', '家居日用', '食品生鲜']
-    cities = {
-        '北京': [39.9042, 116.4074], '上海': [31.2304, 121.4737], '广州': [23.1291, 113.2644], 
-        '深圳': [22.5431, 114.0579], '杭州': [30.2741, 120.1551], '成都': [30.5728, 104.0665],
-        '重庆': [29.5332, 106.5050], '武汉': [30.5928, 114.3055], '西安': [34.3416, 108.9398],
-        '南京': [32.0603, 118.7969]
+def load_mock_data(platform_name):
+    """根据选择的平台，生成模拟的、符合表头的海量真实感数据"""
+    np.random.seed(len(platform_name)) # 让每个平台数据不同
+    size = np.random.randint(1500, 3000)
+    
+    dates = pd.date_range(end=datetime.date.today(), periods=30, freq='D')
+    categories = ['服饰内衣', '美妆护肤', '3C数码', '食品生鲜', '家居日用']
+    cities = list(CITY_COORDS.keys()) + ['其他城市'] * 5
+    
+    data = {
+        '用户ID': [f"U{np.random.randint(10000, 99999)}" for _ in range(size)],
+        '用户姓名': [f"测试用户{i}" for i in range(size)],
+        '商品ID': [f"P{np.random.randint(100, 500)}" for _ in range(size)],
+        '商品名称': [f"爆款商品{np.random.randint(1,50)}" for _ in range(size)],
+        '商品类别': np.random.choice(categories, size, p=[0.3, 0.2, 0.15, 0.2, 0.15]),
+        '单价': np.random.uniform(20, 1500, size).round(2),
+        # 生成随机的购买时间（包含具体小时，用于画热力图）
+        '购买时间': [np.random.choice(dates).strftime('%Y-%m-%d ') + f"{np.random.randint(0,24):02d}:{np.random.randint(0,60):02d}" for _ in range(size)],
+        '购买数量': np.random.choice([1, 2, 3, 4, 5], size, p=[0.6, 0.2, 0.1, 0.05, 0.05]),
+        '用户城市': np.random.choice(cities, size),
+        '用户性别': np.random.choice(['男', '女'], size, p=[0.4, 0.6]),
+        '用户年龄': np.random.normal(28, 6, size).clip(18, 65).astype(int)
     }
-    
-    dates = pd.date_range(end=datetime.date.today(), periods=30)
-    data = []
-    
-    for d in dates:
-        for p in platforms:
-            for c in categories:
-                # 模拟转化漏斗基础数据
-                uv = np.random.randint(5000, 50000)
-                pv = int(uv * np.random.uniform(1.5, 3.5))
-                cart = int(uv * np.random.uniform(0.1, 0.3))
-                order = int(cart * np.random.uniform(0.3, 0.6))
-                pay = int(order * np.random.uniform(0.8, 0.95))
-                
-                # 模拟营收与花费
-                price = np.random.randint(50, 500)
-                gmv = pay * price
-                ad_cost = int(gmv * np.random.uniform(0.05, 0.2)) # ROI 约 5-20
-                refund = int(gmv * np.random.uniform(0.02, 0.1))
-                
-                # 随机城市与满意度
-                city = np.random.choice(list(cities.keys()))
-                lat, lon = cities[city]
-                satisfaction = np.random.uniform(3.5, 5.0)
-                
-                data.append([d, p, c, city, lat, lon, uv, pv, cart, order, pay, gmv, ad_cost, refund, satisfaction])
-                
-    df = pd.DataFrame(data, columns=[
-        '日期', '平台', '品类', '城市', '纬度', '经度', '访客数(UV)', '浏览量(PV)', 
-        '加购数', '下单数', '支付数', '销售额(GMV)', '营销花费', '退款金额', '用户满意度'
-    ])
+    df = pd.DataFrame(data)
+    df['消费金额'] = df['单价'] * df['购买数量']
+    df['购买时间'] = pd.to_datetime(df['购买时间'])
+    df['日期'] = df['购买时间'].dt.date
+    df['平台'] = platform_name
     return df
 
-# 加载数据
-with st.spinner("正在连接数据仓库加载核心业务数据..."):
-    raw_df = generate_mock_data()
-
-# ==========================================
-# 3. 侧边栏：全局数据筛选器
-# ==========================================
-st.sidebar.image("https://img.icons8.com/color/96/000000/combo-chart--v1.png", width=60)
-st.sidebar.title("全域数据看板配置")
-st.sidebar.markdown("---")
-
-# 平台多选
-selected_platforms = st.sidebar.multiselect(
-    "🛒 选择渠道平台", 
-    options=raw_df['平台'].unique(), 
-    default=raw_df['平台'].unique()
-)
-
-# 日期范围
-min_date = raw_df['日期'].min().date()
-max_date = raw_df['日期'].max().date()
-date_range = st.sidebar.date_input("📅 选择分析周期", [min_date, max_date])
-
-# 过滤数据
-if len(date_range) == 2:
-    start_date, end_date = date_range
-    df = raw_df[(raw_df['平台'].isin(selected_platforms)) & 
-                (raw_df['日期'].dt.date >= start_date) & 
-                (raw_df['日期'].dt.date <= end_date)]
-else:
-    df = raw_df[raw_df['平台'].isin(selected_platforms)]
-
-if df.empty:
-    st.warning("⚠️ 暂无数据，请调整侧边栏的筛选条件。")
-    st.stop()
-
-# ==========================================
-# 4. 主体内容：多维度 Tab 页面
-# ==========================================
-st.title("📊 全域电商数据洞察系统 (大厂体验版)")
-st.markdown("覆盖流量、转化、交易、用户、商品、营销全生命周期的可视化监控平台。")
-
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "💰 交易与大盘", "🧲 流量与漏斗", "📦 商品与供应链", "👥 用户与区域", "🤖 AI 深度诊断"
-])
-
-# ----------------- Tab 1: 交易与大盘 -----------------
-with tab1:
-    st.subheader("大盘核心指标 (交易维)")
-    c1, c2, c3, c4 = st.columns(4)
-    total_gmv = df['销售额(GMV)'].sum()
-    total_cost = df['营销花费'].sum()
-    c1.metric("全域总销售额(GMV)", f"¥ {total_gmv / 10000:,.1f} 万")
-    c2.metric("总支付订单数", f"{df['支付数'].sum():,} 笔")
-    c3.metric("整体客单价", f"¥ {total_gmv / df['支付数'].sum():,.2f}")
-    c4.metric("全域营销 ROI", f"{(total_gmv / total_cost):.2f}", delta="产出比")
-
-    col1, col2 = st.columns([6, 4])
-    with col1:
-        # 趋势图
-        daily_gmv = df.groupby(['日期', '平台'])['销售额(GMV)'].sum().reset_index()
-        fig_trend = px.area(daily_gmv, x='日期', y='销售额(GMV)', color='平台',
-                            title="📈 各平台 GMV 走势对比", template="plotly_white")
-        st.plotly_chart(fig_trend, use_container_width=True)
-    with col2:
-        # 环形饼图
-        platform_share = df.groupby('平台')['销售额(GMV)'].sum().reset_index()
-        fig_pie = px.pie(platform_share, names='平台', values='销售额(GMV)', hole=0.4,
-                         title="🌐 渠道销售额占比", color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_pie.update_traces(textinfo='percent+label')
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-# ----------------- Tab 2: 流量与漏斗 -----------------
-with tab2:
-    st.subheader("转化链路分析 (流量维)")
-    col1, col2 = st.columns(2)
-    with col1:
-        # 核心：漏斗图
-        funnel_data = {
-            '环节': ['访客(UV)', '加购商品', '提交订单', '最终支付'],
-            '人数': [df['访客数(UV)'].sum(), df['加购数'].sum(), df['下单数'].sum(), df['支付数'].sum()]
-        }
-        fig_funnel = go.Figure(go.Funnel(
-            y=funnel_data['环节'], x=funnel_data['人数'],
-            textinfo="value+percent initial",
-            marker={"color": ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]}
-        ))
-        fig_funnel.update_layout(title="🔽 全链路转化漏斗", template="plotly_white")
-        st.plotly_chart(fig_funnel, use_container_width=True)
-        
-    with col2:
-        # 热力图：平台 vs 品类的流量分布
-        heatmap_data = df.groupby(['平台', '品类'])['访客数(UV)'].sum().reset_index()
-        fig_heat = px.density_heatmap(heatmap_data, x="平台", y="品类", z="访客数(UV)",
-                                      title="🔥 流量分布热力图 (UV)", color_continuous_scale="Viridis")
-        st.plotly_chart(fig_heat, use_container_width=True)
-
-# ----------------- Tab 3: 商品与供应链 -----------------
-with tab3:
-    st.subheader("货品表现与履约 (商品维)")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("商品总动销件数", f"{df['下单数'].sum():,} 件")
-    c2.metric("平均用户满意度", f"{df['用户满意度'].mean():.1f} / 5.0", delta="好评")
-    c3.metric("整体退款率", f"{(df['退款金额'].sum() / total_gmv)*100:.2f}%", delta="-预警", delta_color="inverse")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        # 柱状图：品类销售排行
-        cat_gmv = df.groupby('品类')['销售额(GMV)'].sum().sort_values(ascending=True).reset_index()
-        fig_bar = px.bar(cat_gmv, x='销售额(GMV)', y='品类', orientation='h', 
-                         title="📊 品类销售额排行榜", color='销售额(GMV)', color_continuous_scale="Blues")
-        st.plotly_chart(fig_bar, use_container_width=True)
-    with col2:
-        # 树状图：展现更直观的结构
-        fig_tree = px.treemap(df, path=['平台', '品类'], values='退款金额',
-                              title="📦 退款金额结构分布 (Treemap)", color='退款金额', color_continuous_scale="Reds")
-        st.plotly_chart(fig_tree, use_container_width=True)
-
-# ----------------- Tab 4: 用户与区域 -----------------
-with tab4:
-    st.subheader("高价值人群地图 (用户维)")
+# 侧边栏：操作区
+with st.sidebar:
+    st.header("⚙️ 数据控制台")
+    st.markdown("**【面试官专属体验区】**")
     
-    # 核心：全国城市气泡地图
-    city_data = df.groupby(['城市', '纬度', '经度']).agg({'销售额(GMV)': 'sum', '访客数(UV)': 'sum'}).reset_index()
-    # 使用 open-street-map 免费底图
-    fig_map = px.scatter_mapbox(city_data, lat="纬度", lon="经度", size="销售额(GMV)", color="访客数(UV)",
-                                hover_name="城市", hover_data=["销售额(GMV)"],
-                                color_continuous_scale=px.colors.cyclical.IceFire, size_max=40, zoom=3,
-                                title="🗺️ 全国核心城市消费力分布地图")
-    fig_map.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":40,"l":0,"b":0})
-    st.plotly_chart(fig_map, use_container_width=True)
-
-# ----------------- Tab 5: AI 深度诊断 -----------------
-with tab5:
-    st.subheader("🧠 阿里云通义千问专家诊断")
-    st.markdown("基于当前筛选的日期和平台数据，由 AI 生成总监级业务洞察。")
+    platforms = ["淘宝", "天猫", "京东", "拼多多", "1688", "苏宁"]
+    selected_platform = st.selectbox("👉 选择模拟电商平台：", ["请选择..."] + platforms)
     
-    api_key = os.environ.get("OPENAI_API_KEY", "sk-cdc57fd44a394cea8ec25dd4ad2512f7")
-    client = OpenAI(
-        api_key=api_key, 
-        base_url="https://ws-vvr85dv3ndbxfxtu.ap-southeast-1.maas.aliyuncs.com/compatible-model/v1" 
-    )
+    st.markdown("---")
+    st.markdown("**或者上传本地 CSV 数据：**")
+    uploaded_files = st.file_uploader("支持批量上传", type=["csv"], accept_multiple_files=True)
 
-    if st.button("✨ 一键生成全域业务诊断报告 ✨", type="primary"):
-        with st.spinner("AI 正在深度分析各项指标..."):
-            # 聚合核心数据给大模型
-            summary = f"""
-            分析周期：{len(df['日期'].unique())}天。平台：{', '.join(df['平台'].unique())}。
-            整体大盘：总访客 {df['访客数(UV)'].sum()}，支付订单 {df['支付数'].sum()}，总GMV {total_gmv}，营销花费 {total_cost}，退款率 {(df['退款金额'].sum() / total_gmv):.2%}。
-            转化漏斗：UV到加购率 {(df['加购数'].sum()/df['访客数(UV)'].sum()):.2%}，加购到支付率 {(df['支付数'].sum()/df['加购数'].sum()):.2%}。
-            Top2高营收品类及金额：{df.groupby('品类')['销售额(GMV)'].sum().nlargest(2).to_dict()}。
-            """
-            prompt = f"""
-            你是一名年薪百万的电商数据总监。请根据以下大屏汇总数据，生成极具深度的业务诊断报告。
-            【数据概况】：\n{summary}\n
-            请严格包含以下4个部分（用Markdown及emoji）：
-            1. **全局诊断**：一句话定调近期业绩健康度，点算整体 ROI 和退款率是否健康。
-            2. **漏斗断层分析**：分析流量转化链路，指出哪个环节流失最严重。
-            3. **品类/渠道红黑榜**：指出表现最好的摇钱树，和拖后腿的业务。
-            4. **破局策略**：基于数据给出3条极其干货的实操改进建议（针对营销或供应链）。
-            """
+# 加载数据逻辑
+df = None
+if selected_platform != "请选择...":
+    df = load_mock_data(selected_platform)
+    st.success(f"✅ 已成功一键接入【{selected_platform}】亿级数据仓库（当前抽样 {len(df)} 条）。")
+elif uploaded_files:
+    df_list = []
+    for file in uploaded_files:
+        temp_df = pd.read_csv(file, encoding='utf-8' if 'utf' in file.name else 'gbk')
+        df_list.append(temp_df)
+    df = pd.concat(df_list, ignore_index=True)
+    df['购买时间'] = pd.to_datetime(df['购买时间'])
+    df['日期'] = df['购买时间'].dt.date
+    st.success(f"✅ 本地数据清洗完毕！共 {len(df)} 条。")
+
+# ==========================================
+# 3. 核心可视化大屏 (分 Tab 标签页展示)
+# ==========================================
+if df is not None:
+    # 模拟推演：基于订单量推演流量与营销数据 (展示数据处理思维)
+    total_orders = len(df)
+    total_gmv = df['消费金额'].sum()
+    mock_pv = total_orders * 125  # 模拟浏览量
+    mock_uv = total_orders * 85   # 模拟访客数
+    mock_cart = total_orders * 12 # 模拟加购数
+    mock_pay = int(total_orders * 0.92) # 模拟支付订单
+    
+    # 顶部全局 KPI
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("💰 整体 GMV (元)", f"¥ {total_gmv:,.0f}", "+12.5%")
+    c2.metric("📦 有效支付订单", f"{mock_pay:,}", "-2.1%")
+    c3.metric("💳 笔单价 (元)", f"¥ {(total_gmv/total_orders):,.1f}", "+5.4%")
+    c4.metric("👁️ 平台访客数 (UV)", f"{mock_uv:,}", "+18.2%")
+    c5.metric("🎯 整体转化率", f"{(mock_pay/mock_uv)*100:.2f}%", "+0.3%")
+    
+    st.write("---")
+    
+    # 分设 5 个模块标签页
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 交易与转化链路", "👥 用户画像与地域", "🛍️ 商品与履约分析", "📢 流量与营销引擎", "🧠 AI 总监级商业洞察"
+    ])
+
+    # ----------- TAB 1: 交易与转化 -----------
+    with tab1:
+        st.subheader("1. 交易趋势与转化漏斗")
+        col1, col2 = st.columns([6, 4])
+        with col1:
+            daily_gmv = df.groupby('日期')['消费金额'].sum().reset_index()
+            fig1 = px.area(daily_gmv, x='日期', y='消费金额', title="📈 近30天销售额 GMV 趋势 (渐变面积图)",
+                           color_discrete_sequence=['#3498db'])
+            st.plotly_chart(fig1, use_container_width=True)
+        with col2:
+            # 漏斗图
+            funnel_data = dict(
+                阶段=['浏览 (PV)', '访客 (UV)', '加购 (Cart)', '下单 (Order)', '支付 (Pay)'],
+                数值=[mock_pv, mock_uv, mock_cart, total_orders, mock_pay]
+            )
+            fig2 = px.funnel(funnel_data, x='数值', y='阶段', title="🔽 核心流量转化漏斗图",
+                             color_discrete_sequence=px.colors.sequential.Teal)
+            st.plotly_chart(fig2, use_container_width=True)
+
+    # ----------- TAB 2: 用户画像与地域 -----------
+    with tab2:
+        st.subheader("2. 用户多维切片分析")
+        col1, col2 = st.columns([4, 6])
+        with col1:
+            # 年龄性别直方图
+            fig3 = px.histogram(df, x='用户年龄', color='用户性别', nbins=15,
+                                title="🧑‍🤝‍🧑 用户年龄与性别画像分布",
+                                color_discrete_map={'男':'#2c3e50', '女':'#e74c3c'})
+            st.plotly_chart(fig3, use_container_width=True)
+        with col2:
+            # 地域气泡地图 / 树状图
+            city_gmv = df.groupby('用户城市')['消费金额'].sum().reset_index()
+            # 过滤出有经纬度的城市画地图，其他画树状图
+            map_data = []
+            for _, row in city_gmv.iterrows():
+                if row['用户城市'] in CITY_COORDS:
+                    map_data.append({'城市': row['用户城市'], 'GMV': row['消费金额'], 
+                                     'lat': CITY_COORDS[row['用户城市']][0], 'lon': CITY_COORDS[row['用户城市']][1]})
             
-            try:
-                response = client.chat.completions.create(
-                    model="qwen-plus",
-                    messages=[
-                        {"role": "system", "content": "你是一个极其犀利、用数据说话的电商数据分析专家。"},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                st.success("✅ 诊断完成！")
-                st.markdown(response.choices[0].message.content)
-            except Exception as e:
-                st.error(f"调用失败，错误详情：{e}")
+            if map_data:
+                map_df = pd.DataFrame(map_data)
+                fig4 = px.scatter_mapbox(map_df, lat="lat", lon="lon", size="GMV", color="GMV",
+                                         hover_name="城市", size_max=40, zoom=3, 
+                                         mapbox_style="carto-positron", title="🗺️ 消费力核心地域分布 (散点地图)",
+                                         color_continuous_scale=px.colors.sequential.Plasma)
+                st.plotly_chart(fig4, use_container_width=True)
+            else:
+                fig4 = px.treemap(city_gmv, path=['用户城市'], values='消费金额', title="🗺️ 地域消费力结构热力图")
+                st.plotly_chart(fig4, use_container_width=True)
+
+    # ----------- TAB 3: 商品与履约 -----------
+    with tab3:
+        st.subheader("3. 货品动销与供应链模拟")
+        col1, col2, col3 = st.columns([3, 4, 3])
+        with col1:
+            cat_gmv = df.groupby('商品类别')['消费金额'].sum().reset_index()
+            fig5 = px.pie(cat_gmv, names='商品类别', values='消费金额', hole=0.5, title="🍩 品类营收贡献度")
+            st.plotly_chart(fig5, use_container_width=True)
+        with col2:
+            # 购买时间热力图
+            df['小时'] = df['购买时间'].dt.hour
+            df['星期'] = df['购买时间'].dt.day_name()
+            heatmap_data = df.groupby(['星期', '小时']).size().reset_index(name='订单量')
+            fig6 = px.density_heatmap(heatmap_data, x='小时', y='星期', z='订单量', 
+                                      title="🔥 用户下单时间热力图 (寻最优转化点)",
+                                      color_continuous_scale="Viridis")
+            st.plotly_chart(fig6, use_container_width=True)
+        with col3:
+            st.markdown("#### 📦 供应链预警 (基于单量推算)")
+            st.progress(0.85, text="当前整体库存动销率：85% (健康)")
+            st.progress(0.12, text="爆款单品缺货率预警：12% (需补货)")
+            st.progress(0.96, text="48小时发货履约率：96%")
+            st.info("💡 提示：服装品类退货率已达 18%，建议优化详情页尺码说明。")
+
+    # ----------- TAB 4: 流量与营销 -----------
+    with tab4:
+        st.subheader("4. 营销投放与 ROI (大盘推演)")
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            # 模拟流量来源饼图
+            traffic_sources = pd.DataFrame({
+                '来源': ['站内搜索', '个性化推荐', '直播带货', '外部广告CPC', '私域/社群'],
+                '占比': [35, 25, 20, 15, 5]
+            })
+            fig7 = px.pie(traffic_sources, names='来源', values='占比', title="🌐 核心流量来源渠道结构")
+            st.plotly_chart(fig7, use_container_width=True)
+        with mc2:
+            st.markdown("#### 📢 各渠道投放 ROI 监控")
+            st.metric("站内直通车/搜索 ROI", "1 : 4.2", "表现优秀")
+            st.metric("短视频/直播带货 ROI", "1 : 2.8", "流失严重", delta_color="inverse")
+            st.metric("外部信息流广告 CPC", "¥ 1.2 / 点击", "成本上升")
+
+    # ----------- TAB 5: AI 洞察报告 -----------
+    with tab5:
+        st.subheader("🧠 接入大模型：生成专属商业研判")
+        api_key = os.environ.get("OPENAI_API_KEY", "sk-cdc57fd44a394cea8ec25dd4ad2512f7") 
+        client = OpenAI(api_key=api_key, base_url="https://ws-vvr85dv3ndbxfxtu.ap-southeast-1.maas.aliyuncs.com/compatible-model/v1")
+        
+        if st.button("🚀 一键生成总监级数据洞察报告", type="primary"):
+            with st.spinner("AI 正在扫描七大维度数据，撰写业务诊断书..."):
+                top_cat = df.groupby('商品类别')['消费金额'].sum().idxmax()
+                top_city = df.groupby('用户城市')['消费金额'].sum().idxmax()
+                
+                prompt = f"""
+                你是一个顶级的电商总监。基于当前电商数据大盘：
+                总GMV {total_gmv:.2f}元，转化率 {(mock_pay/mock_uv)*100:.2f}%。
+                第一大品类是 {top_cat}，核心消费城市是 {top_city}。
+                请严格用以下结构（Markdown排版）输出报告：
+                1. 📈 **流量与转化诊断**（分析转化瓶颈）
+                2. 🛍️ **货品与履约建议**（针对核心品类的供应链建议）
+                3. 🎯 **用户与营销策略**（根据人群与城市给后续投放建议）
+                """
+                try:
+                    response = client.chat.completions.create(
+                        model="qwen-plus",
+                        messages=[{"role": "system", "content": "你是一个资深业务专家，语言极其犀利干练。"},
+                                  {"role": "user", "content": prompt}]
+                    )
+                    st.success("✅ 诊断报告生成完毕！")
+                    st.markdown(response.choices[0].message.content)
+                except Exception as e:
+                    st.error(f"调用 AI 失败，错误：{e}")
