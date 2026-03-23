@@ -191,255 +191,143 @@
 #                 st.error(f"调用 AI 失败，错误信息：{e}")
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 from openai import OpenAI
 import os
-import datetime
+import plotly.express as px  # 引入超强绘图神器
 
-# ==========================================
-# 1. 页面与全局样式配置 (炫酷背景与UI)
-# ==========================================
-st.set_page_config(page_title="全域电商数据可视化指挥舱", page_icon="🌐", layout="wide")
+# 1. 页面配置 (开启宽屏模式，让图表更大气)
+st.set_page_config(page_title="企业级电商数据洞察助手", page_icon="🛒", layout="wide")
+st.title("🛒 企业零售海量数据 AI 洞察平台")
+st.markdown("支持批量上传原始订单流水，系统将自动清洗、聚合数据，并生成**可交互的BI看板**与 AI 专家诊断。")
 
-# 注入自定义 CSS，让页面颜色丰富、卡片化、高级感拉满
-st.markdown("""
-<style>
-    /* 全局背景色微调 */
-    .stApp {background-color: #f4f7f6;}
-    /* 隐藏顶部默认空白 */
-    .block-container {padding-top: 2rem;}
-    /* 自定义指标卡片样式 */
-    div[data-testid="metric-container"] {
-        background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
-        border-radius: 15px;
-        padding: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        border-left: 5px solid #00C698;
-    }
-    /* 标题样式渐变 */
-    h1 {background: -webkit-linear-gradient(45deg, #1e3c72, #2a5298); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-</style>
-""", unsafe_allow_html=True)
+# 2. 初始化大模型客户端
+api_key = os.environ.get("OPENAI_API_KEY", "sk-cdc57fd44a394cea8ec25dd4ad2512f7")
+client = OpenAI(
+    api_key=api_key, 
+    base_url="https://ws-vvr85dv3ndbxfxtu.ap-southeast-1.maas.aliyuncs.com/compatible-model/v1" 
+)
 
-st.title("🌐 全域电商可视化数据指挥舱 (大厂级)")
-st.markdown("覆盖**流量、转化、交易、用户、商品、营销、履约**七大维度，支持一键生成 AI 业务洞察。")
-
-# ==========================================
-# 2. 面试专属：一键生成大厂 Demo 数据
-# ==========================================
-# 预设城市经纬度用于画地图
-CITY_COORDS = {
-    '北京': [39.9042, 116.4074], '上海': [31.2304, 121.4737], '广州': [23.1291, 113.2644],
-    '深圳': [22.5431, 114.0579], '成都': [30.5728, 104.0668], '杭州': [30.2741, 120.1551],
-    '重庆': [29.5332, 106.5050], '武汉': [30.5928, 114.3055], '西安': [34.3416, 108.9398]
-}
-
+# --- 核心黑科技：加入数据缓存，提速10倍！ ---
 @st.cache_data
-def load_mock_data(platform_name):
-    """根据选择的平台，生成模拟的、符合表头的海量真实感数据"""
-    np.random.seed(len(platform_name)) # 让每个平台数据不同
-    size = np.random.randint(1500, 3000)
-    
-    dates = pd.date_range(end=datetime.date.today(), periods=30, freq='D')
-    categories = ['服饰内衣', '美妆护肤', '3C数码', '食品生鲜', '家居日用']
-    cities = list(CITY_COORDS.keys()) + ['其他城市'] * 5
-    
-    data = {
-        '用户ID': [f"U{np.random.randint(10000, 99999)}" for _ in range(size)],
-        '用户姓名': [f"测试用户{i}" for i in range(size)],
-        '商品ID': [f"P{np.random.randint(100, 500)}" for _ in range(size)],
-        '商品名称': [f"爆款商品{np.random.randint(1,50)}" for _ in range(size)],
-        '商品类别': np.random.choice(categories, size, p=[0.3, 0.2, 0.15, 0.2, 0.15]),
-        '单价': np.random.uniform(20, 1500, size).round(2),
-        # 生成随机的购买时间（包含具体小时，用于画热力图）
-        '购买时间': [np.random.choice(dates).strftime('%Y-%m-%d ') + f"{np.random.randint(0,24):02d}:{np.random.randint(0,60):02d}" for _ in range(size)],
-        '购买数量': np.random.choice([1, 2, 3, 4, 5], size, p=[0.6, 0.2, 0.1, 0.05, 0.05]),
-        '用户城市': np.random.choice(cities, size),
-        '用户性别': np.random.choice(['男', '女'], size, p=[0.4, 0.6]),
-        '用户年龄': np.random.normal(28, 6, size).clip(18, 65).astype(int)
-    }
-    df = pd.DataFrame(data)
-    df['消费金额'] = df['单价'] * df['购买数量']
-    df['购买时间'] = pd.to_datetime(df['购买时间'])
-    df['日期'] = df['购买时间'].dt.date
-    df['平台'] = platform_name
-    return df
-
-# 侧边栏：操作区
-with st.sidebar:
-    st.header("⚙️ 数据控制台")
-    st.markdown("**【面试官专属体验区】**")
-    
-    platforms = ["淘宝", "天猫", "京东", "拼多多", "1688", "苏宁"]
-    selected_platform = st.selectbox("👉 选择模拟电商平台：", ["请选择..."] + platforms)
-    
-    st.markdown("---")
-    st.markdown("**或者上传本地 CSV 数据：**")
-    uploaded_files = st.file_uploader("支持批量上传", type=["csv"], accept_multiple_files=True)
-
-# 加载数据逻辑
-df = None
-if selected_platform != "请选择...":
-    df = load_mock_data(selected_platform)
-    st.success(f"✅ 已成功一键接入【{selected_platform}】亿级数据仓库（当前抽样 {len(df)} 条）。")
-elif uploaded_files:
+def process_data(uploaded_files):
     df_list = []
     for file in uploaded_files:
-        temp_df = pd.read_csv(file, encoding='utf-8' if 'utf' in file.name else 'gbk')
+        try:
+            temp_df = pd.read_csv(file, encoding='utf-8')
+        except UnicodeDecodeError:
+            temp_df = pd.read_csv(file, encoding='gbk')
         df_list.append(temp_df)
+        
     df = pd.concat(df_list, ignore_index=True)
     df['购买时间'] = pd.to_datetime(df['购买时间'])
     df['日期'] = df['购买时间'].dt.date
-    st.success(f"✅ 本地数据清洗完毕！共 {len(df)} 条。")
+    return df
 
-# ==========================================
-# 3. 核心可视化大屏 (分 Tab 标签页展示)
-# ==========================================
-if df is not None:
-    # 模拟推演：基于订单量推演流量与营销数据 (展示数据处理思维)
-    total_orders = len(df)
-    total_gmv = df['消费金额'].sum()
-    mock_pv = total_orders * 125  # 模拟浏览量
-    mock_uv = total_orders * 85   # 模拟访客数
-    mock_cart = total_orders * 12 # 模拟加购数
-    mock_pay = int(total_orders * 0.92) # 模拟支付订单
+# 3. 数据上传模块
+uploaded_files = st.file_uploader("📂 请批量上传订单流水数据 (CSV格式)", type=["csv"], accept_multiple_files=True)
+
+if uploaded_files:
+    with st.spinner("⏳ 正在清洗合并海量数据..."):
+        # 调用缓存的数据处理函数
+        df = process_data(uploaded_files)
     
-    # 顶部全局 KPI
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("💰 整体 GMV (元)", f"¥ {total_gmv:,.0f}", "+12.5%")
-    c2.metric("📦 有效支付订单", f"{mock_pay:,}", "-2.1%")
-    c3.metric("💳 笔单价 (元)", f"¥ {(total_gmv/total_orders):,.1f}", "+5.4%")
-    c4.metric("👁️ 平台访客数 (UV)", f"{mock_uv:,}", "+18.2%")
-    c5.metric("🎯 整体转化率", f"{(mock_pay/mock_uv)*100:.2f}%", "+0.3%")
+    st.success(f"✅ 数据合并清洗完成！共处理 **{len(df):,}** 条底层交易流水。")
     
+    # ==========================================
+    # 🎨 4. 高级绚丽 BI 看板 (Plotly驱动)
+    # ==========================================
     st.write("---")
+    st.write("### 📊 核心业务可视化大屏")
     
-    # 分设 5 个模块标签页
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 交易与转化链路", "👥 用户画像与地域", "🛍️ 商品与履约分析", "📢 流量与营销引擎", "🧠 AI 总监级商业洞察"
-    ])
+    # 顶部核心指标 KPI 卡片
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("💰 总销售额 (元)", f"¥ {df['消费金额'].sum():,.2f}")
+    col2.metric("📦 总订单数", f"{len(df):,}")
+    col3.metric("🛍️ 销售商品总件数", f"{df['购买数量'].sum():,}")
+    col4.metric("💳 客单价 (元)", f"¥ {(df['消费金额'].sum() / len(df)):,.2f}")
 
-    # ----------- TAB 1: 交易与转化 -----------
-    with tab1:
-        st.subheader("1. 交易趋势与转化漏斗")
-        col1, col2 = st.columns([6, 4])
-        with col1:
-            daily_gmv = df.groupby('日期')['消费金额'].sum().reset_index()
-            fig1 = px.area(daily_gmv, x='日期', y='消费金额', title="📈 近30天销售额 GMV 趋势 (渐变面积图)",
-                           color_discrete_sequence=['#3498db'])
-            st.plotly_chart(fig1, use_container_width=True)
-        with col2:
-            # 漏斗图
-            funnel_data = dict(
-                阶段=['浏览 (PV)', '访客 (UV)', '加购 (Cart)', '下单 (Order)', '支付 (Pay)'],
-                数值=[mock_pv, mock_uv, mock_cart, total_orders, mock_pay]
-            )
-            fig2 = px.funnel(funnel_data, x='数值', y='阶段', title="🔽 核心流量转化漏斗图",
-                             color_discrete_sequence=px.colors.sequential.Teal)
-            st.plotly_chart(fig2, use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True) # 加点空行
 
-    # ----------- TAB 2: 用户画像与地域 -----------
-    with tab2:
-        st.subheader("2. 用户多维切片分析")
-        col1, col2 = st.columns([4, 6])
-        with col1:
-            # 年龄性别直方图
-            fig3 = px.histogram(df, x='用户年龄', color='用户性别', nbins=15,
-                                title="🧑‍🤝‍🧑 用户年龄与性别画像分布",
-                                color_discrete_map={'男':'#2c3e50', '女':'#e74c3c'})
-            st.plotly_chart(fig3, use_container_width=True)
-        with col2:
-            # 地域气泡地图 / 树状图
-            city_gmv = df.groupby('用户城市')['消费金额'].sum().reset_index()
-            # 过滤出有经纬度的城市画地图，其他画树状图
-            map_data = []
-            for _, row in city_gmv.iterrows():
-                if row['用户城市'] in CITY_COORDS:
-                    map_data.append({'城市': row['用户城市'], 'GMV': row['消费金额'], 
-                                     'lat': CITY_COORDS[row['用户城市']][0], 'lon': CITY_COORDS[row['用户城市']][1]})
+    # 图表第一排：趋势图 + 饼图
+    chart_col1, chart_col2 = st.columns([6, 4]) # 6:4 比例分配宽度
+    
+    with chart_col1:
+        # 📈 渐变面积趋势图
+        daily_sales = df.groupby('日期')['消费金额'].sum().reset_index()
+        fig_trend = px.area(daily_sales, x='日期', y='消费金额', 
+                            title="📈 每日营收趋势 (面积图)", 
+                            markers=True, 
+                            color_discrete_sequence=['#00C698']) # 清爽的翠绿色
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+    with chart_col2:
+        # 🍩 多彩环形饼图
+        category_sales = df.groupby('商品类别')['消费金额'].sum().reset_index()
+        fig_pie = px.pie(category_sales, names='商品类别', values='消费金额', 
+                         hole=0.4, # 变成中间空心的环形图
+                         title="🛍️ 商品类别营收占比")
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    # 图表第二排：条形图 + 用户画像
+    chart_col3, chart_col4 = st.columns([5, 5])
+    
+    with chart_col3:
+        # 🏙️ 动态多色彩色条形图
+        city_sales = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=True).tail(10).reset_index() # 取Top10并倒序让最高的在上面
+        fig_city = px.bar(city_sales, x='消费金额', y='用户城市', orientation='h', 
+                          color='消费金额', # 根据金额自动渐变上色
+                          color_continuous_scale=px.colors.sequential.Sunset, # 晚霞渐变色
+                          title="🏙️ 营收贡献 TOP 10 城市")
+        st.plotly_chart(fig_city, use_container_width=True)
+
+    with chart_col4:
+        # 👥 年龄与性别分布直方图
+        fig_demo = px.histogram(df, x='用户年龄', color='用户性别', 
+                                nbins=20, barmode='group',
+                                color_discrete_map={'男': '#3498db', '女': '#e74c3c'}, # 经典红蓝配色
+                                title="👥 用户人群画像 (年龄与性别)")
+        st.plotly_chart(fig_demo, use_container_width=True)
+
+    # ==========================================
+    # 🧠 5. AI 业务诊断模块
+    # ==========================================
+    st.write("---")
+    st.write("### 🧠 AI 零售数据总监深度报告")
+    
+    # 提前生成 AI 需要的数据摘要
+    city_str = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=False).head(5).to_string()
+    cat_str = df.groupby('商品类别')['消费金额'].sum().sort_values(ascending=False).to_string()
+    gender_str = df.groupby('用户性别')['消费金额'].sum().to_string()
+
+    if st.button("✨ 一键生成深度商业诊断 ✨"):
+        with st.spinner("AI 正在深度思考业务逻辑..."):
+            summary_text = f"""
+            总体表现：总销售额 {df['消费金额'].sum():.2f} 元，共 {len(df)} 笔订单。
+            品类表现摘要：\n{cat_str}
+            城市表现前五名：\n{city_str}
+            男女消费占比：\n{gender_str}
+            """
             
-            if map_data:
-                map_df = pd.DataFrame(map_data)
-                fig4 = px.scatter_mapbox(map_df, lat="lat", lon="lon", size="GMV", color="GMV",
-                                         hover_name="城市", size_max=40, zoom=3, 
-                                         mapbox_style="carto-positron", title="🗺️ 消费力核心地域分布 (散点地图)",
-                                         color_continuous_scale=px.colors.sequential.Plasma)
-                st.plotly_chart(fig4, use_container_width=True)
-            else:
-                fig4 = px.treemap(city_gmv, path=['用户城市'], values='消费金额', title="🗺️ 地域消费力结构热力图")
-                st.plotly_chart(fig4, use_container_width=True)
-
-    # ----------- TAB 3: 商品与履约 -----------
-    with tab3:
-        st.subheader("3. 货品动销与供应链模拟")
-        col1, col2, col3 = st.columns([3, 4, 3])
-        with col1:
-            cat_gmv = df.groupby('商品类别')['消费金额'].sum().reset_index()
-            fig5 = px.pie(cat_gmv, names='商品类别', values='消费金额', hole=0.5, title="🍩 品类营收贡献度")
-            st.plotly_chart(fig5, use_container_width=True)
-        with col2:
-            # 购买时间热力图
-            df['小时'] = df['购买时间'].dt.hour
-            df['星期'] = df['购买时间'].dt.day_name()
-            heatmap_data = df.groupby(['星期', '小时']).size().reset_index(name='订单量')
-            fig6 = px.density_heatmap(heatmap_data, x='小时', y='星期', z='订单量', 
-                                      title="🔥 用户下单时间热力图 (寻最优转化点)",
-                                      color_continuous_scale="Viridis")
-            st.plotly_chart(fig6, use_container_width=True)
-        with col3:
-            st.markdown("#### 📦 供应链预警 (基于单量推算)")
-            st.progress(0.85, text="当前整体库存动销率：85% (健康)")
-            st.progress(0.12, text="爆款单品缺货率预警：12% (需补货)")
-            st.progress(0.96, text="48小时发货履约率：96%")
-            st.info("💡 提示：服装品类退货率已达 18%，建议优化详情页尺码说明。")
-
-    # ----------- TAB 4: 流量与营销 -----------
-    with tab4:
-        st.subheader("4. 营销投放与 ROI (大盘推演)")
-        mc1, mc2 = st.columns(2)
-        with mc1:
-            # 模拟流量来源饼图
-            traffic_sources = pd.DataFrame({
-                '来源': ['站内搜索', '个性化推荐', '直播带货', '外部广告CPC', '私域/社群'],
-                '占比': [35, 25, 20, 15, 5]
-            })
-            fig7 = px.pie(traffic_sources, names='来源', values='占比', title="🌐 核心流量来源渠道结构")
-            st.plotly_chart(fig7, use_container_width=True)
-        with mc2:
-            st.markdown("#### 📢 各渠道投放 ROI 监控")
-            st.metric("站内直通车/搜索 ROI", "1 : 4.2", "表现优秀")
-            st.metric("短视频/直播带货 ROI", "1 : 2.8", "流失严重", delta_color="inverse")
-            st.metric("外部信息流广告 CPC", "¥ 1.2 / 点击", "成本上升")
-
-    # ----------- TAB 5: AI 洞察报告 -----------
-    with tab5:
-        st.subheader("🧠 接入大模型：生成专属商业研判")
-        api_key = os.environ.get("OPENAI_API_KEY", "sk-cdc57fd44a394cea8ec25dd4ad2512f7") 
-        client = OpenAI(api_key=api_key, base_url="https://ws-vvr85dv3ndbxfxtu.ap-southeast-1.maas.aliyuncs.com/compatible-model/v1")
-        
-        if st.button("🚀 一键生成总监级数据洞察报告", type="primary"):
-            with st.spinner("AI 正在扫描七大维度数据，撰写业务诊断书..."):
-                top_cat = df.groupby('商品类别')['消费金额'].sum().idxmax()
-                top_city = df.groupby('用户城市')['消费金额'].sum().idxmax()
-                
-                prompt = f"""
-                你是一个顶级的电商总监。基于当前电商数据大盘：
-                总GMV {total_gmv:.2f}元，转化率 {(mock_pay/mock_uv)*100:.2f}%。
-                第一大品类是 {top_cat}，核心消费城市是 {top_city}。
-                请严格用以下结构（Markdown排版）输出报告：
-                1. 📈 **流量与转化诊断**（分析转化瓶颈）
-                2. 🛍️ **货品与履约建议**（针对核心品类的供应链建议）
-                3. 🎯 **用户与营销策略**（根据人群与城市给后续投放建议）
-                """
-                try:
-                    response = client.chat.completions.create(
-                        model="qwen-plus",
-                        messages=[{"role": "system", "content": "你是一个资深业务专家，语言极其犀利干练。"},
-                                  {"role": "user", "content": prompt}]
-                    )
-                    st.success("✅ 诊断报告生成完毕！")
-                    st.markdown(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"调用 AI 失败，错误：{e}")
+            prompt = f"""
+            你是一位顶级的电商零售数据分析总监。请根据以下浓缩的脱敏数据摘要，写一份极具深度的业务诊断报告：
+            【数据摘要】：\n{summary_text}\n
+            请严格按照以下结构输出（使用 Markdown，加上 emoji）：
+            1. **大盘诊断**：评价总体业绩与客单价。
+            2. **爆款与品类洞察**：指出核心品类和需要优化的长尾品类。
+            3. **高价值人群画像**：从性别、城市维度描绘核心利润人群。
+            4. **下一步行动建议**：给出至少 3 条落地性极强的营销/备货策略。
+            """
+            
+            try:
+                response = client.chat.completions.create(
+                    model="qwen-plus",
+                    messages=[
+                        {"role": "system", "content": "你是一个用数据说话、眼光毒辣的商业顾问。语言风格专业、简练。"},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                st.success("✅ 诊断报告已生成！")
+                st.markdown(response.choices[0].message.content)
+            except Exception as e:
+                st.error(f"调用 AI 失败，请检查网络或配置。错误详情：{e}")
