@@ -608,26 +608,9 @@ from openai import OpenAI
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-import re # 用于简单的知识库分词和匹配
 
 # ==========================================
-# 0. RAG 知识库初始化 (自动生成模拟的内部文件)
-# ==========================================
-KNOWLEDGE_FILE = "内部运营SOP手册.txt"
-
-# 如果本地没有这个知识库，系统自动写一份出来
-if not os.path.exists(KNOWLEDGE_FILE):
-    with open(KNOWLEDGE_FILE, "w", encoding="utf-8") as f:
-        f.write("""【公司内部机密：电商全域运营与营销SOP手册 V3.0】
-规则1：转化挽回策略。如果发现“加购到支付”流失率超过30%，必须立刻触发“催付机制”。建议向未支付用户定向发送5-10元无门槛代金券，并配以短信提醒“您的购物车商品即将恢复原价”。
-规则2：高净值城市运营。针对北京、上海、深圳、广州、成都等一线高消费城市，切忌打价格战。主推“次日达”服务和“尊享包装”，重点突出服务品质和退换货无忧，以提升客单价。
-规则3：爆款放大机制。当某一核心单品（如美妆或服饰类目）的单日销售额占比超过总盘15%时，应立刻将其移入“S级流量池”，并在首页Banner给予至少2天的核心曝光。
-规则4：滞销品清仓。对于连续7天无销量的长尾商品或低转化商品，立刻开启“买一赠一”或打包成盲盒销售，加速清理库存，避免仓储成本浪费。
-规则5：渠道引流转化。如果是“短视频/直播”带来的流量，冲动消费多，退款率往往较高，客服需在发货前介入进行一次满意度回访；如果是“站内搜索”带来的自然流量，意向极高，需重点引导加入店铺会员。
-""")
-
-# ==========================================
-# 1. 页面与全局样式配置
+# 1. 页面与全局样式配置 (大厂 BI 级 UI)
 # ==========================================
 st.set_page_config(page_title="全域电商数据大屏", page_icon="📊", layout="wide")
 
@@ -644,7 +627,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 全域电商数据可视化与 AI 决策中心")
-st.markdown("覆盖七大维度，支持多平台一键切换、自定义上传，并已挂载 **RAG 内部知识库** 进行增强洞察。")
+st.markdown("覆盖**流量、转化、交易、用户、商品、营销、供应链**七大维度，支持多平台一键切换、自定义数据上传与 AI 深度诊断。")
 
 # ==========================================
 # 2. AI 客户端初始化
@@ -667,6 +650,7 @@ def load_and_enhance_data(platform_name):
         try:
             df = pd.read_csv(file_path, encoding='gbk')
         except Exception:
+            st.warning(f"⚠️ 未在同级目录找到 {file_path}，已自动启用备用模拟数据集进行演示。")
             dates = pd.date_range(start='2024-01-01', periods=1000, freq='H')
             df = pd.DataFrame({
                 '用户ID': [f"U{np.random.randint(1000, 9999)}" for _ in range(1000)],
@@ -686,7 +670,7 @@ def load_and_enhance_data(platform_name):
     return df
 
 # ==========================================
-# 4. 侧边栏设置
+# 4. 侧边栏：多平台切换与【自定义上传】
 # ==========================================
 logo_map = {
     "淘宝": "https://img.alicdn.com/tfs/TB1_uT8a5ERMeJjSspiXXbZLFXa-143-59.png",
@@ -700,46 +684,55 @@ logo_map = {
 logo_placeholder = st.sidebar.empty() 
 st.sidebar.header("🎯 经营大盘控制台")
 
+# 新增了“自定义上传”选项
 platforms = ["淘宝", "天猫", "京东", "拼多多", "1688", "苏宁易购", "🛠️ 自定义数据上传"]
 selected_platform = st.sidebar.radio("请选择分析数据源", platforms)
 
+# 核心逻辑分支：如果是内置平台，读内置文件；如果是自定义，弹出上传框
 if selected_platform != "🛠️ 自定义数据上传":
     if selected_platform in logo_map:
         logo_placeholder.image(logo_map[selected_platform], width=120)
     with st.spinner(f"正在抽取 {selected_platform} 全域业务数据..."):
         df = load_and_enhance_data(selected_platform)
 else:
-    logo_placeholder.empty()
+    logo_placeholder.empty() # 清空 Logo
     st.sidebar.markdown("---")
     uploaded_file = st.sidebar.file_uploader("📂 请上传标准电商交易流水 (CSV格式)", type=["csv"])
+    
     if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file, encoding='utf-8')
-        except Exception:
-            df = pd.read_csv(uploaded_file, encoding='gbk')
-        if '购买时间' in df.columns:
-            df['购买时间'] = pd.to_datetime(df['购买时间'])
-            df['日期'] = df['购买时间'].dt.date
-            df['小时'] = df['购买时间'].dt.hour
-            df['星期'] = df['购买时间'].dt.day_name()
-        else:
-            st.error("❌ 数据格式错误：上传的 CSV 必须包含【购买时间】列！")
-            st.stop()
+        with st.spinner("正在解析您上传的数据..."):
+            try:
+                df = pd.read_csv(uploaded_file, encoding='utf-8')
+            except Exception:
+                df = pd.read_csv(uploaded_file, encoding='gbk')
+            
+            # 兼容性清洗，确保用户上传的文件包含所需时间字段
+            if '购买时间' in df.columns:
+                df['购买时间'] = pd.to_datetime(df['购买时间'])
+                df['日期'] = df['购买时间'].dt.date
+                df['小时'] = df['购买时间'].dt.hour
+                df['星期'] = df['购买时间'].dt.day_name()
+            else:
+                st.error("❌ 数据格式错误：上传的 CSV 必须包含【购买时间】列！")
+                st.stop()
     else:
         st.info("👈 请在左侧上传您的自定义 CSV 文件以开启大屏分析。")
-        st.stop()
+        st.stop() # 停止往下执行，等待用户上传
 
-# 基础数据统计
+# ==========================================
+# 提取基础数据与模拟全域漏斗
+# ==========================================
 real_orders = len(df)
 real_gmv = df['消费金额'].sum() if '消费金额' in df.columns else 0
 mock_uv = real_orders * np.random.randint(15, 25) 
 mock_pv = mock_uv * 3.5
 mock_cart = int(mock_uv * 0.3)
-cart_to_pay_drop_rate = (1 - real_orders/mock_cart)*100 if mock_cart>0 else 0
 
 st.sidebar.write("---")
-st.sidebar.success(f"✅ 数据接入正常\n共加载 {real_orders:,} 笔交易。")
-st.sidebar.info("📚 内部知识库状态：**已挂载**") # UI 提示已挂载知识库
+if selected_platform == "🛠️ 自定义数据上传":
+    st.sidebar.success(f"✅ 自定义数据解析成功\n共加载 {real_orders:,} 笔交易。")
+else:
+    st.sidebar.success(f"✅ {selected_platform} 数据接入正常\n共加载 {real_orders:,} 笔真实交易。")
 
 # ==========================================
 # 5. UI 布局：四大业务模块 Tab 切换
@@ -748,91 +741,150 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "💰 交易与流量 (大盘)", 
     "👥 用户与商品 (画像)", 
     "🚀 营销与供应链 (运营)", 
-    "🧠 RAG 知识库增强诊断" # 改了名字显得更高级
+    "🧠 AI 深度诊断报告"
 ])
 
-# (此处省略 Tab 1, 2, 3 的图表代码，为了节省篇幅，它们与之前的代码完全一致)
-# --- 复制前一版代码中的 Tab 1, Tab 2, Tab 3 代码粘贴在这里即可 ---
-# 因为主要修改在 Tab 4，我直接写 Tab 4 的代码：
+# ----------------- TAB 1: 交易与流量 -----------------
+with tab1:
+    st.markdown("### 1. 核心交易指标 (Transaction)")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("💰 销售额 GMV", f"¥ {real_gmv:,.0f}", "+12.5% 环比")
+    c2.metric("💳 支付订单量", f"{real_orders:,} 笔", "+5.2% 环比")
+    c3.metric("🛒 客单价", f"¥ {real_gmv/real_orders if real_orders>0 else 0:,.2f}", "-1.2% 环比")
+    c4.metric("👥 独立访客 (UV)", f"{mock_uv:,} 人", "+18.0% 环比")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col_t1, col_t2 = st.columns([6, 4])
+    with col_t1:
+        if '日期' in df.columns and '消费金额' in df.columns:
+            daily_sales = df.groupby('日期')['消费金额'].sum().reset_index()
+            fig_trend = px.area(daily_sales, x='日期', y='消费金额', 
+                                title=f"📈 每日 GMV 趋势",
+                                color_discrete_sequence=['#FF4B4B'])
+            st.plotly_chart(fig_trend, use_container_width=True)
+        
+    with col_t2:
+        funnel_data = dict(
+            阶段=['浏览 (PV)', '访客 (UV)', '加购人数', '下单人数', '支付完成'],
+            数值=[mock_pv, mock_uv, mock_cart, int(real_orders*1.2), real_orders]
+        )
+        fig_funnel = go.Figure(go.Funnel(
+            y=funnel_data['阶段'], x=funnel_data['数值'],
+            textinfo="value+percent initial",
+            marker={"color": ["#3498db", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"]}
+        ))
+        fig_funnel.update_layout(title="🔽 核心转化漏斗分析")
+        st.plotly_chart(fig_funnel, use_container_width=True)
+
+# ----------------- TAB 2: 用户与商品 -----------------
+with tab2:
+    st.markdown("### 2. 用户画像与商品表现 (User & Product)")
+    col_u1, col_u2 = st.columns(2)
+    
+    with col_u1:
+        if '商品类别' in df.columns and '消费金额' in df.columns:
+            cat_sales = df.groupby('商品类别')['消费金额'].sum().reset_index()
+            fig_tree = px.treemap(cat_sales, path=['商品类别'], values='消费金额',
+                                  color='消费金额', color_continuous_scale='Viridis',
+                                  title="🛍️ 商品品类营收贡献 (Treemap)")
+            st.plotly_chart(fig_tree, use_container_width=True)
+        
+    with col_u2:
+        if '小时' in df.columns and '星期' in df.columns:
+            heatmap_data = df.groupby(['星期', '小时']).size().reset_index(name='订单数')
+            fig_heat = px.density_heatmap(heatmap_data, x='小时', y='星期', z='订单数',
+                                          color_continuous_scale='YlOrRd',
+                                          title="🔥 用户下单时间热力图")
+            st.plotly_chart(fig_heat, use_container_width=True)
+
+    col_u3, col_u4 = st.columns(2)
+    with col_u3:
+        if '用户年龄' in df.columns and '用户性别' in df.columns:
+            fig_demo = px.histogram(df, x='用户年龄', color='用户性别', nbins=15, 
+                                    barmode='group', color_discrete_map={'男': '#2980b9', '女': '#c0392b'},
+                                    title="👥 消费者年龄与性别分布")
+            st.plotly_chart(fig_demo, use_container_width=True)
+        
+    with col_u4:
+        if '用户城市' in df.columns and '消费金额' in df.columns:
+            city_sales = df.groupby('用户城市')['消费金额'].sum().sort_values().tail(10).reset_index()
+            fig_city = px.bar(city_sales, x='消费金额', y='用户城市', orientation='h',
+                              color='消费金额', color_continuous_scale='Blues',
+                              title="🏙️ 核心高净值城市 TOP 10")
+            st.plotly_chart(fig_city, use_container_width=True)
+
+# ----------------- TAB 3: 营销与供应链 -----------------
+with tab3:
+    st.markdown("### 3. 营销效率与履约质量 (Marketing & Supply Chain)")
+    st.info("💡 注：此模块数据结合历史大盘波动动态模拟，用于指导宏观运营决策。")
+    
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        sources = pd.DataFrame({
+            '渠道': ['站内搜索', '首页推荐', '短视频/直播', '站外广告', '自然复购'],
+            '占比': [35, 25, 20, 15, 5]
+        })
+        fig_pie = px.pie(sources, names='渠道', values='占比', hole=0.5,
+                         title="🌐 流量来源结构占比", color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_pie.update_traces(textinfo='percent+label')
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+    with col_m2:
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = 98.2,
+            title = {'text': "📦 48小时履约发货率 (%)"},
+            gauge = {'axis': {'range': [None, 100]},
+                     'bar': {'color': "#27ae60"},
+                     'steps' : [
+                         {'range': [0, 80], 'color': "#e74c3c"},
+                         {'range': [80, 90], 'color': "#f1c40f"},
+                         {'range': [90, 100], 'color': "#ecf0f1"}]}
+        ))
+        st.plotly_chart(fig_gauge, use_container_width=True)
+
+# ----------------- TAB 4: AI 深度诊断 -----------------
 with tab4:
     platform_label = "自定义数据" if selected_platform == "🛠️ 自定义数据上传" else selected_platform
-    st.markdown(f"### 🧠 {platform_label} 大盘数据 AI 智能诊断 (RAG版)")
-    st.caption("系统将结合实时数据与本地知识库《内部运营SOP手册.txt》为您生成专属报告。")
+    st.markdown(f"### 🧠 {platform_label} 大盘数据 AI 智能诊断")
     
-    if st.button("✨ 启动 RAG 检索并生成报告 ✨", type="primary"):
-        with st.spinner("AI 正在汇聚数据，并检索内部知识库..."):
+    if st.button("✨ 生成全域经营分析报告 ✨", type="primary"):
+        with st.spinner("AI 正在汇聚 7 大维度数据，生成总监级洞察报告..."):
             
-            # --- 核心数据统计 ---
             cat_top = df.groupby('商品类别')['消费金额'].sum().sort_values(ascending=False).head(3).to_dict() if '商品类别' in df.columns else "未知"
             city_top = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=False).head(3).to_dict() if '用户城市' in df.columns else "未知"
             
             summary_text = f"""
             当前分析数据源：{platform_label}
-            1. 交易与流量：总GMV ¥{real_gmv:.2f}，总订单 {real_orders}笔。PV到加购转化率良好，但加购到支付流失率约 {cart_to_pay_drop_rate:.1f}%。
+            1. 交易与流量：总GMV ¥{real_gmv:.2f}，总订单 {real_orders}笔，客单价 ¥{real_gmv/real_orders if real_orders>0 else 0:.2f}。预估转化漏斗中，PV到加购转化率良好，但加购到支付流失率约 {(1 - real_orders/mock_cart)*100 if mock_cart>0 else 0:.1f}%。
             2. 商品表现：TOP3营收品类为 {cat_top}。
             3. 用户画像：核心消费城市TOP3为 {city_top}。
+            4. 营销与供应链：站内搜索和推荐占流量大头(60%)，48小时发货率高达98.2%。
             """
-
-            # ==========================================
-            # 💡 核心 RAG 检索逻辑 (轻量级本地实现)
-            # ==========================================
-            st.toast("🔍 正在扫描本地知识库...")
             
-            # 1. 读取本地知识库文件并“切块” (Chunking)
-            with open(KNOWLEDGE_FILE, "r", encoding="utf-8") as f:
-                knowledge_chunks = f.readlines()
-                
-            # 2. 根据当前业务数据，提炼搜索关键词 (Query)
-            search_keywords = []
-            if cart_to_pay_drop_rate > 20: search_keywords.append("流失率")
-            if "北京" in str(city_top) or "上海" in str(city_top): search_keywords.append("城市")
-            if "美妆" in str(cat_top) or "服饰" in str(cat_top): search_keywords.append("类目")
-            
-            # 3. 检索最匹配的规则段落 (Retrieve)
-            retrieved_knowledge = []
-            for chunk in knowledge_chunks:
-                if any(keyword in chunk for keyword in search_keywords):
-                    retrieved_knowledge.append(chunk.strip())
-            
-            # 如果没匹配到，就给一条通用规则
-            if not retrieved_knowledge:
-                retrieved_knowledge = [knowledge_chunks[1].strip()] 
-                
-            knowledge_context = "\n".join(retrieved_knowledge)
-            st.toast(f"✅ 成功从知识库中检索到 {len(retrieved_knowledge)} 条相关内部规则！")
-            
-            # ==========================================
-            # 💡 知识库注入 Prompt (Augmented Generation)
-            # ==========================================
             prompt = f"""
-            你是一位年薪百万的电商大厂数据运营总监。请写一份汇报给CEO的商业洞察报告。
-            
-            【实时业务大盘数据】：
-            {summary_text}
-            
-            【从公司知识库检索到的内部 SOP 规则】：
-            {knowledge_context}
-            
+            你是一位年薪百万的电商大厂（阿里/京东级别）数据运营总监。请根据以下全域经营数据，写一份汇报给CEO的商业洞察报告：
+            【数据摘要】：\n{summary_text}\n
             请严格按照以下结构输出（Markdown格式，多用 emoji 和专业的业务黑话）：
             1. 📈 **全域经营大盘总结**：一句话定调目前的生意健康度。
-            2. ⚠️ **转化漏斗痛点**：结合数据，深度剖析可能的原因。
-            3. 🎯 **基于内部 SOP 的落地建议 (重点！)**：
-               - 请务必**严格采纳**上方【从公司知识库检索到的内部 SOP 规则】中的具体做法（如发券金额、引流策略等）。
-               - 结合当前的人(高优城市)、货(头部类目)数据，给出具体的执行 Action。
+            2. ⚠️ **转化漏斗痛点**：针对“加购到支付”的流失，深度剖析可能的原因。
+            3. 🎯 **人货场重构建议**：
+               - **人 (用户)**：针对高优城市该怎么做定向运营？
+               - **货 (商品)**：头部类目如何拉升利润？
+               - **场 (营销/流量)**：如何优化流量结构？
+            4. 💡 **下一步核心 Action 落地建议**。
             """
             
             try:
                 response = client.chat.completions.create(
                     model="qwen-plus",
                     messages=[
-                        {"role": "system", "content": "你是资深电商专家。你的决策必须遵循公司的内部 SOP。"},
+                        {"role": "system", "content": "你是资深电商专家，擅长从流量、转化、客单价等维度做深度业务拆解。"},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                st.success("✅ RAG 知识库增强诊断报告已生成！")
+                st.success("✅ AI 诊断报告已生成！")
                 st.markdown(response.choices[0].message.content)
             except Exception as e:
                 st.error(f"调用 AI 失败，请检查网络。错误详情：{e}")
-
-# 注：为了保持代码完整且可以运行，请确保加上 Tab1/2/3 的可视化图表代码。
