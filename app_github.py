@@ -411,7 +411,7 @@ def load_and_enhance_data(platform_name):
 # ==========================================
 # 建立一个“字典”，映射各大平台的真实高清 Logo 地址
 logo_map = {
-    "淘宝": "https://img.alicdn.com/tfs/TB1R5aqbgMPMeJjy1XbXXcwxVXa-205-71.png",
+    "淘宝": "https://img.alicdn.com/tfs/TB1_uT8a5ERMeJjSspiXXbZLFXa-143-59.png",
     "天猫": "https://img.alicdn.com/tfs/TB1.bTRbQyWBuNjy0FpXXassXXa-230-68.png",
     "京东": "https://misc.360buyimg.com/lib/img/e/logo-201305-b.png",
     "拼多多": "拼多多.png", # 拼多多官方图床有极强的防盗链，暂用默认电商Logo替代
