@@ -601,7 +601,6 @@
 #                 st.markdown(response.choices[0].message.content)
 #             except Exception as e:
 #                 st.error(f"调用 AI 失败，请检查网络。错误详情：{e}")
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -609,71 +608,26 @@ from openai import OpenAI
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-import plotly.io as pio
-
-# 全局设置 Plotly 为深色主题，完美契合大屏氛围
-pio.templates.default = "plotly_dark"
 
 # ==========================================
-# 1. 页面与全局样式配置 (大厂 BI 级暗黑科幻 UI)
+# 1. 页面与全局样式配置 (大厂 BI 级 UI)
 # ==========================================
-st.set_page_config(page_title="全域电商数据大屏", page_icon="🌌", layout="wide")
+st.set_page_config(page_title="全域电商数据大屏", page_icon="📊", layout="wide")
 
-# 注入自定义 CSS，打造深色发光科技感卡片
 st.markdown("""
 <style>
-    /* 将整个应用背景强行渲染为深邃的星空蓝黑 */
-    .stApp {
-        background-color: #0b0f19;
-        color: #e2e8f0;
-    }
-    
-    /* 核心指标卡片的赛博朋克发光设计 */
     div[data-testid="metric-container"] {
-        background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
-        border-radius: 8px;
-        padding: 20px;
-        border: 1px solid #1e293b;
-        box-shadow: 0 4px 20px rgba(56, 189, 248, 0.05);
-        border-top: 3px solid #38bdf8; /* 科技蓝顶部发光条 */
-        transition: transform 0.2s ease;
-    }
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(56, 189, 248, 0.15);
-    }
-    
-    /* 覆盖指标数值颜色为高亮白 */
-    div[data-testid="metric-container"] div {
-        color: #f8fafc !important;
-    }
-    /* 覆盖指标标题颜色为高级灰 */
-    div[data-testid="metric-container"] label {
-        color: #94a3b8 !important;
-        font-weight: 600;
-    }
-    
-    /* 美化选项卡 Tab 样式 */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #1e293b;
-        border-radius: 4px 4px 0 0;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        color: #94a3b8;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #38bdf8;
-        color: #0b0f19 !important;
-        font-weight: bold;
+        background: linear-gradient(135deg, #f6f8fd 0%, #f1f5f9 100%);
+        border-radius: 10px;
+        padding: 15px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🌌 全域电商数据可视化与 AI 决策指挥中心")
-st.markdown("覆盖**流量、转化、交易、用户、商品、营销、供应链**七大维度，支持预设大盘与自定义数据接入。")
+st.title("📊 全域电商数据可视化与 AI 决策中心")
+st.markdown("覆盖**流量、转化、交易、用户、商品、营销、供应链**七大维度，支持多平台一键切换、自定义数据上传与 AI 深度诊断。")
 
 # ==========================================
 # 2. AI 客户端初始化
@@ -685,17 +639,18 @@ client = OpenAI(
 )
 
 # ==========================================
-# 3. 核心数据引擎
+# 3. 核心数据引擎 (读取本地文件或生成模拟数据)
 # ==========================================
 @st.cache_data
-def load_and_enhance_data(file_path_or_buffer):
+def load_and_enhance_data(platform_name):
+    file_path = f"{platform_name}.csv"
     try:
-        df = pd.read_csv(file_path_or_buffer, encoding='utf-8')
+        df = pd.read_csv(file_path, encoding='utf-8')
     except Exception:
         try:
-            df = pd.read_csv(file_path_or_buffer, encoding='gbk')
+            df = pd.read_csv(file_path, encoding='gbk')
         except Exception:
-            # 备用容错模拟数据
+            st.warning(f"⚠️ 未在同级目录找到 {file_path}，已自动启用备用模拟数据集进行演示。")
             dates = pd.date_range(start='2024-01-01', periods=1000, freq='H')
             df = pd.DataFrame({
                 '用户ID': [f"U{np.random.randint(1000, 9999)}" for _ in range(1000)],
@@ -708,7 +663,6 @@ def load_and_enhance_data(file_path_or_buffer):
                 '用户年龄': np.random.randint(18, 60, 1000)
             })
             
-    # 数据基础清洗
     df['购买时间'] = pd.to_datetime(df['购买时间'])
     df['日期'] = df['购买时间'].dt.date
     df['小时'] = df['购买时间'].dt.hour
@@ -716,7 +670,7 @@ def load_and_enhance_data(file_path_or_buffer):
     return df
 
 # ==========================================
-# 4. 侧边栏：双擎数据源接入 (预设 Demo + 自定义上传)
+# 4. 侧边栏：多平台切换与【自定义上传】
 # ==========================================
 logo_map = {
     "淘宝": "https://img.alicdn.com/tfs/TB1_uT8a5ERMeJjSspiXXbZLFXa-143-59.png",
@@ -728,44 +682,57 @@ logo_map = {
 }
 
 logo_placeholder = st.sidebar.empty() 
-st.sidebar.header("⚙️ 数据控制台")
+st.sidebar.header("🎯 经营大盘控制台")
 
-# 数据源切换开关
-data_mode = st.sidebar.radio("📡 选择数据接入模式", ["🗂️ 预设大盘 Demo", "📤 自定义 CSV 上传"])
+# 新增了“自定义上传”选项
+platforms = ["淘宝", "天猫", "京东", "拼多多", "1688", "苏宁易购", "🛠️ 自定义数据上传"]
+selected_platform = st.sidebar.radio("请选择分析数据源", platforms)
 
-df = None
-selected_platform = "未知平台"
-
-if data_mode == "🗂️ 预设大盘 Demo":
-    platforms = ["淘宝", "天猫", "京东", "拼多多", "1688", "苏宁易购"]
-    selected_platform = st.sidebar.selectbox("切换分析平台", platforms)
-    logo_placeholder.image(logo_map.get(selected_platform, ""), width=120)
-    
+# 核心逻辑分支：如果是内置平台，读内置文件；如果是自定义，弹出上传框
+if selected_platform != "🛠️ 自定义数据上传":
+    if selected_platform in logo_map:
+        logo_placeholder.image(logo_map[selected_platform], width=120)
     with st.spinner(f"正在抽取 {selected_platform} 全域业务数据..."):
-        df = load_and_enhance_data(f"{selected_platform}.csv")
-        
+        df = load_and_enhance_data(selected_platform)
 else:
-    # 自定义上传模式
-    logo_placeholder.markdown("### 📊 自定义数据引擎")
-    selected_platform = "自定义导入数据"
-    uploaded_file = st.sidebar.file_uploader("请上传电商流水数据 (CSV格式)", type=["csv"])
+    logo_placeholder.empty() # 清空 Logo
+    st.sidebar.markdown("---")
+    uploaded_file = st.sidebar.file_uploader("📂 请上传标准电商交易流水 (CSV格式)", type=["csv"])
     
     if uploaded_file is not None:
-        with st.spinner("正在解析上传的数据文件..."):
-            df = load_and_enhance_data(uploaded_file)
+        with st.spinner("正在解析您上传的数据..."):
+            try:
+                df = pd.read_csv(uploaded_file, encoding='utf-8')
+            except Exception:
+                df = pd.read_csv(uploaded_file, encoding='gbk')
+            
+            # 兼容性清洗，确保用户上传的文件包含所需时间字段
+            if '购买时间' in df.columns:
+                df['购买时间'] = pd.to_datetime(df['购买时间'])
+                df['日期'] = df['购买时间'].dt.date
+                df['小时'] = df['购买时间'].dt.hour
+                df['星期'] = df['购买时间'].dt.day_name()
+            else:
+                st.error("❌ 数据格式错误：上传的 CSV 必须包含【购买时间】列！")
+                st.stop()
     else:
-        st.info("👈 请在左侧上传 CSV 文件以生成可视化大屏。")
-        st.stop() # 暂停执行，直到用户上传文件
+        st.info("👈 请在左侧上传您的自定义 CSV 文件以开启大屏分析。")
+        st.stop() # 停止往下执行，等待用户上传
 
-# 反推模拟数据（为了让展示全域看板显得完整）
+# ==========================================
+# 提取基础数据与模拟全域漏斗
+# ==========================================
 real_orders = len(df)
-real_gmv = df['消费金额'].sum()
-mock_uv = real_orders * np.random.randint(15, 25)
+real_gmv = df['消费金额'].sum() if '消费金额' in df.columns else 0
+mock_uv = real_orders * np.random.randint(15, 25) 
 mock_pv = mock_uv * 3.5
 mock_cart = int(mock_uv * 0.3)
 
 st.sidebar.write("---")
-st.sidebar.success(f"✅ 数据引擎运转正常\n实时处理 {real_orders:,} 笔底层交易。")
+if selected_platform == "🛠️ 自定义数据上传":
+    st.sidebar.success(f"✅ 自定义数据解析成功\n共加载 {real_orders:,} 笔交易。")
+else:
+    st.sidebar.success(f"✅ {selected_platform} 数据接入正常\n共加载 {real_orders:,} 笔真实交易。")
 
 # ==========================================
 # 5. UI 布局：四大业务模块 Tab 切换
@@ -774,88 +741,92 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "💰 交易与流量 (大盘)", 
     "👥 用户与商品 (画像)", 
     "🚀 营销与供应链 (运营)", 
-    "🧠 AI 深度决策中心"
+    "🧠 AI 深度诊断报告"
 ])
 
 # ----------------- TAB 1: 交易与流量 -----------------
 with tab1:
-    st.markdown("### 1. 核心交易指标监控 (Transaction Monitor)")
+    st.markdown("### 1. 核心交易指标 (Transaction)")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💰 实时 GMV (元)", f"¥ {real_gmv:,.0f}", "+12.5% 环比")
-    c2.metric("💳 有效支付订单", f"{real_orders:,} 笔", "+5.2% 环比")
-    c3.metric("🛒 大盘客单价", f"¥ {real_gmv/real_orders:,.2f}", "-1.2% 环比")
-    c4.metric("👥 独立访客流量 (UV)", f"{mock_uv:,} 人", "+18.0% 环比")
+    c1.metric("💰 销售额 GMV", f"¥ {real_gmv:,.0f}", "+12.5% 环比")
+    c2.metric("💳 支付订单量", f"{real_orders:,} 笔", "+5.2% 环比")
+    c3.metric("🛒 客单价", f"¥ {real_gmv/real_orders if real_orders>0 else 0:,.2f}", "-1.2% 环比")
+    c4.metric("👥 独立访客 (UV)", f"{mock_uv:,} 人", "+18.0% 环比")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
     col_t1, col_t2 = st.columns([6, 4])
     with col_t1:
-        daily_sales = df.groupby('日期')['消费金额'].sum().reset_index()
-        # 科技荧光青渐变
-        fig_trend = px.area(daily_sales, x='日期', y='消费金额', 
-                            title=f"📈 {selected_platform} 每日 GMV 动态追踪",
-                            color_discrete_sequence=['#00f2fe']) 
-        st.plotly_chart(fig_trend, use_container_width=True)
+        if '日期' in df.columns and '消费金额' in df.columns:
+            daily_sales = df.groupby('日期')['消费金额'].sum().reset_index()
+            fig_trend = px.area(daily_sales, x='日期', y='消费金额', 
+                                title=f"📈 每日 GMV 趋势",
+                                color_discrete_sequence=['#FF4B4B'])
+            st.plotly_chart(fig_trend, use_container_width=True)
         
     with col_t2:
         funnel_data = dict(
-            阶段=['浏览 (PV)', '访客 (UV)', '加购意向', '创单转化', '支付完成'],
+            阶段=['浏览 (PV)', '访客 (UV)', '加购人数', '下单人数', '支付完成'],
             数值=[mock_pv, mock_uv, mock_cart, int(real_orders*1.2), real_orders]
         )
         fig_funnel = go.Figure(go.Funnel(
             y=funnel_data['阶段'], x=funnel_data['数值'],
             textinfo="value+percent initial",
-            marker={"color": ["#1e3a8a", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"]} # 深蓝到浅蓝的科技渐变
+            marker={"color": ["#3498db", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"]}
         ))
-        fig_funnel.update_layout(title="🔽 核心转化流转漏斗")
+        fig_funnel.update_layout(title="🔽 核心转化漏斗分析")
         st.plotly_chart(fig_funnel, use_container_width=True)
 
 # ----------------- TAB 2: 用户与商品 -----------------
 with tab2:
-    st.markdown("### 2. 消费者画像与品类雷达 (User & Product)")
+    st.markdown("### 2. 用户画像与商品表现 (User & Product)")
     col_u1, col_u2 = st.columns(2)
     
     with col_u1:
-        cat_sales = df.groupby('商品类别')['消费金额'].sum().reset_index()
-        fig_tree = px.treemap(cat_sales, path=['商品类别'], values='消费金额',
-                              color='消费金额', color_continuous_scale='Agal', # 荧光感色系
-                              title="🛍️ 类目营收矩阵 (Treemap)")
-        st.plotly_chart(fig_tree, use_container_width=True)
+        if '商品类别' in df.columns and '消费金额' in df.columns:
+            cat_sales = df.groupby('商品类别')['消费金额'].sum().reset_index()
+            fig_tree = px.treemap(cat_sales, path=['商品类别'], values='消费金额',
+                                  color='消费金额', color_continuous_scale='Viridis',
+                                  title="🛍️ 商品品类营收贡献 (Treemap)")
+            st.plotly_chart(fig_tree, use_container_width=True)
         
     with col_u2:
-        heatmap_data = df.groupby(['星期', '小时']).size().reset_index(name='订单数')
-        fig_heat = px.density_heatmap(heatmap_data, x='小时', y='星期', z='订单数',
-                                      color_continuous_scale='Electric', # 赛博朋克热力色
-                                      title="🔥 消费者活跃时空热力图")
-        st.plotly_chart(fig_heat, use_container_width=True)
+        if '小时' in df.columns and '星期' in df.columns:
+            heatmap_data = df.groupby(['星期', '小时']).size().reset_index(name='订单数')
+            fig_heat = px.density_heatmap(heatmap_data, x='小时', y='星期', z='订单数',
+                                          color_continuous_scale='YlOrRd',
+                                          title="🔥 用户下单时间热力图")
+            st.plotly_chart(fig_heat, use_container_width=True)
 
     col_u3, col_u4 = st.columns(2)
     with col_u3:
-        fig_demo = px.histogram(df, x='用户年龄', color='用户性别', nbins=15, 
-                                barmode='group', color_discrete_map={'男': '#38bdf8', '女': '#c084fc'}, # 赛博蓝 vs 霓虹紫
-                                title="👥 目标人群结构画像")
-        st.plotly_chart(fig_demo, use_container_width=True)
+        if '用户年龄' in df.columns and '用户性别' in df.columns:
+            fig_demo = px.histogram(df, x='用户年龄', color='用户性别', nbins=15, 
+                                    barmode='group', color_discrete_map={'男': '#2980b9', '女': '#c0392b'},
+                                    title="👥 消费者年龄与性别分布")
+            st.plotly_chart(fig_demo, use_container_width=True)
         
     with col_u4:
-        city_sales = df.groupby('用户城市')['消费金额'].sum().sort_values().tail(10).reset_index()
-        fig_city = px.bar(city_sales, x='消费金额', y='用户城市', orientation='h',
-                          color='消费金额', color_continuous_scale='Tealgrn',
-                          title="🏙️ 高净值地域分布 TOP 10")
-        st.plotly_chart(fig_city, use_container_width=True)
+        if '用户城市' in df.columns and '消费金额' in df.columns:
+            city_sales = df.groupby('用户城市')['消费金额'].sum().sort_values().tail(10).reset_index()
+            fig_city = px.bar(city_sales, x='消费金额', y='用户城市', orientation='h',
+                              color='消费金额', color_continuous_scale='Blues',
+                              title="🏙️ 核心高净值城市 TOP 10")
+            st.plotly_chart(fig_city, use_container_width=True)
 
 # ----------------- TAB 3: 营销与供应链 -----------------
 with tab3:
-    st.markdown("### 3. 运营效能与履约监控 (Operations Monitor)")
+    st.markdown("### 3. 营销效率与履约质量 (Marketing & Supply Chain)")
+    st.info("💡 注：此模块数据结合历史大盘波动动态模拟，用于指导宏观运营决策。")
     
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         sources = pd.DataFrame({
-            '渠道': ['站内分发', '智能推荐', '直播矩阵', '全域投流', '私域复购'],
+            '渠道': ['站内搜索', '首页推荐', '短视频/直播', '站外广告', '自然复购'],
             '占比': [35, 25, 20, 15, 5]
         })
-        fig_pie = px.pie(sources, names='渠道', values='占比', hole=0.6,
-                         title="🌐 全域流量来源解构", 
-                         color_discrete_sequence=['#38bdf8', '#818cf8', '#c084fc', '#e879f9', '#2dd4bf'])
+        fig_pie = px.pie(sources, names='渠道', values='占比', hole=0.5,
+                         title="🌐 流量来源结构占比", color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_pie.update_traces(textinfo='percent+label')
         st.plotly_chart(fig_pie, use_container_width=True)
         
@@ -863,55 +834,57 @@ with tab3:
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = 98.2,
-            title = {'text': "📦 履约发货达标率 (%)"},
-            gauge = {'axis': {'range': [None, 100], 'tickcolor': "white"},
-                     'bar': {'color': "#38bdf8"},
-                     'bgcolor': "#1e293b",
+            title = {'text': "📦 48小时履约发货率 (%)"},
+            gauge = {'axis': {'range': [None, 100]},
+                     'bar': {'color': "#27ae60"},
                      'steps' : [
-                         {'range': [0, 80], 'color': "#7f1d1d"},
-                         {'range': [80, 90], 'color': "#78350f"},
-                         {'range': [90, 100], 'color': "#064e3b"}]}
+                         {'range': [0, 80], 'color': "#e74c3c"},
+                         {'range': [80, 90], 'color': "#f1c40f"},
+                         {'range': [90, 100], 'color': "#ecf0f1"}]}
         ))
         st.plotly_chart(fig_gauge, use_container_width=True)
 
 # ----------------- TAB 4: AI 深度诊断 -----------------
 with tab4:
-    st.markdown(f"### 🧠 AI 商业智能中枢 (基于 {selected_platform})")
+    platform_label = "自定义数据" if selected_platform == "🛠️ 自定义数据上传" else selected_platform
+    st.markdown(f"### 🧠 {platform_label} 大盘数据 AI 智能诊断")
     
-    if st.button("🚀 激活 AI 深度数据扫描与策略生成", type="primary"):
-        with st.spinner("AI 神经网络正在并行解析 7 大维度数据..."):
+    if st.button("✨ 生成全域经营分析报告 ✨", type="primary"):
+        with st.spinner("AI 正在汇聚 7 大维度数据，生成总监级洞察报告..."):
             
-            cat_top = df.groupby('商品类别')['消费金额'].sum().sort_values(ascending=False).head(3).to_dict()
-            city_top = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=False).head(3).to_dict()
+            cat_top = df.groupby('商品类别')['消费金额'].sum().sort_values(ascending=False).head(3).to_dict() if '商品类别' in df.columns else "未知"
+            city_top = df.groupby('用户城市')['消费金额'].sum().sort_values(ascending=False).head(3).to_dict() if '用户城市' in df.columns else "未知"
             
             summary_text = f"""
-            数据源：{selected_platform}
-            1. 交易与流量：总GMV ¥{real_gmv:.2f}，总订单 {real_orders}笔，客单价 ¥{real_gmv/real_orders:.2f}。加购到支付流失率约 {(1 - real_orders/mock_cart)*100:.1f}%。
+            当前分析数据源：{platform_label}
+            1. 交易与流量：总GMV ¥{real_gmv:.2f}，总订单 {real_orders}笔，客单价 ¥{real_gmv/real_orders if real_orders>0 else 0:.2f}。预估转化漏斗中，PV到加购转化率良好，但加购到支付流失率约 {(1 - real_orders/mock_cart)*100 if mock_cart>0 else 0:.1f}%。
             2. 商品表现：TOP3营收品类为 {cat_top}。
             3. 用户画像：核心消费城市TOP3为 {city_top}。
-            4. 营销与供应链：发货率高达98.2%。
+            4. 营销与供应链：站内搜索和推荐占流量大头(60%)，48小时发货率高达98.2%。
             """
             
             prompt = f"""
-            你是一位年薪百万的电商大厂数据科学家。请根据以下全域经营数据，写一份汇报给高管的商业诊断：
+            你是一位年薪百万的电商大厂（阿里/京东级别）数据运营总监。请根据以下全域经营数据，写一份汇报给CEO的商业洞察报告：
             【数据摘要】：\n{summary_text}\n
-            结构如下（使用 Markdown，专业严谨的商战语气）：
-            1. 📉 **大盘定调**：评估整体健康度。
-            2. 🔍 **漏斗断点**：剖析流失根因。
-            3. 🎯 **人货场重构**：指出发力点。
-            4. ⚡ **核心行动指令**。
+            请严格按照以下结构输出（Markdown格式，多用 emoji 和专业的业务黑话）：
+            1. 📈 **全域经营大盘总结**：一句话定调目前的生意健康度。
+            2. ⚠️ **转化漏斗痛点**：针对“加购到支付”的流失，深度剖析可能的原因。
+            3. 🎯 **人货场重构建议**：
+               - **人 (用户)**：针对高优城市该怎么做定向运营？
+               - **货 (商品)**：头部类目如何拉升利润？
+               - **场 (营销/流量)**：如何优化流量结构？
+            4. 💡 **下一步核心 Action 落地建议**。
             """
             
             try:
                 response = client.chat.completions.create(
                     model="qwen-plus",
                     messages=[
-                        {"role": "system", "content": "你是数据科学家，擅长通过底层数据发现商业契机。"},
+                        {"role": "system", "content": "你是资深电商专家，擅长从流量、转化、客单价等维度做深度业务拆解。"},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                st.success("✅ AI 诊断完成！策略已下达：")
+                st.success("✅ AI 诊断报告已生成！")
                 st.markdown(response.choices[0].message.content)
             except Exception as e:
-                st.error(f"神经网络连接异常，请检查 API：{e}")
-                
+                st.error(f"调用 AI 失败，请检查网络。错误详情：{e}")
