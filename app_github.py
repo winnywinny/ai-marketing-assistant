@@ -414,9 +414,9 @@ logo_map = {
     "淘宝": "https://img.alicdn.com/tfs/TB1R5aqbgMPMeJjy1XbXXcwxVXa-205-71.png",
     "天猫": "https://img.alicdn.com/tfs/TB1.bTRbQyWBuNjy0FpXXassXXa-230-68.png",
     "京东": "https://misc.360buyimg.com/lib/img/e/logo-201305-b.png",
-    "拼多多": "https://img.alicdn.com/tfs/TB1_uT8a5ERMeJjSspiXXbZLFXa-143-59.png", # 拼多多官方图床有极强的防盗链，暂用默认电商Logo替代
-    "1688": "https://gw.alicdn.com/tfs/TB11nQZqYr1gK0jSZR0XXbP8XXa-280-80.png",
-    "苏宁": "https://image2.suning.cn/uimg/cms/img/161293952044820614.png"
+    "拼多多": "拼多多.png", # 拼多多官方图床有极强的防盗链，暂用默认电商Logo替代
+    "1688": "阿里巴巴.png",
+    "苏宁": "苏宁易购.png"
 }
 
 # 技巧：先在侧边栏最顶端生成一个“隐形的空位”
