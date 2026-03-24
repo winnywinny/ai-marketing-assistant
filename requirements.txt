@@ -6,3 +6,9 @@ requests  # 如果用到请求接口，加这个
 plotly    # 如果用到图表，加这个
 scikit-learn
 jieba
+langchain 
+langchain-core 
+langchain-openai 
+langchain-community 
+faiss-cpu 
+tiktoken
