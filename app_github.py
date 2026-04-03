@@ -37,7 +37,7 @@
 # # # # # #     st.session_state.df = None
 
 
-# # # # # # # 3. 数据来源选择：上传 or 示例
+# # # # # # # 3. 数据来源选择：上传 or 示例freq='h'
 # # # # # # col1, col2 = st.columns([1, 2])
 # # # # # # with col1:
 # # # # # #     use_demo = st.button("✨ 一键使用示例数据体验")
@@ -386,7 +386,7 @@
 # # #         except Exception:
 # # #             # 如果本地没有这个文件，为了防止页面崩溃，生成一份极其逼真的备用模拟数据
 # # #             st.warning(f"⚠️ 未在同级目录找到 {file_path}，已自动启用备用模拟数据集进行演示。")
-# # #             dates = pd.date_range(start='2024-01-01', periods=1000, freq='H')
+# # #             dates = pd.date_range(start='2024-01-01', periods=1000, freq='h')
 # # #             df = pd.DataFrame({
 # # #                 '用户ID': [f"U{np.random.randint(1000, 9999)}" for _ in range(1000)],
 # # #                 '商品类别': np.random.choice(['美妆', '服饰', '数码', '食品', '家居', '运动'], 1000),
@@ -651,7 +651,7 @@
 # #             df = pd.read_csv(file_path, encoding='gbk')
 # #         except Exception:
 # #             st.warning(f"⚠️ 未在同级目录找到 {file_path}，已自动启用备用模拟数据集进行演示。")
-# #             dates = pd.date_range(start='2024-01-01', periods=1000, freq='H')
+# #             dates = pd.date_range(start='2024-01-01', periods=1000, freq='h')
 # #             df = pd.DataFrame({
 # #                 '用户ID': [f"U{np.random.randint(1000, 9999)}" for _ in range(1000)],
 # #                 '商品类别': np.random.choice(['美妆', '服饰', '数码', '食品', '家居', '运动'], 1000),
@@ -1004,7 +1004,7 @@
 #         try:
 #             df = pd.read_csv(file_path, encoding='gbk')
 #         except Exception:
-#             dates = pd.date_range(start='2024-01-01', periods=1000, freq='H')
+#             dates = pd.date_range(start='2024-01-01', periods=1000, freq='h')
 #             df = pd.DataFrame({
 #                 '用户ID': [f"U{np.random.randint(1000, 9999)}" for _ in range(1000)],
 #                 '商品类别': np.random.choice(['美妆', '服饰', '数码', '食品', '家居', '运动'], 1000),
@@ -1299,7 +1299,7 @@ selected_platform = st.sidebar.selectbox("选择目标数据节点", platforms)
 # 数据加载引擎 (带缓存)
 @st.cache_data
 def load_data(platform):
-    dates = pd.date_range(start='2024-01-01', periods=1000, freq='H')
+    dates = pd.date_range(start='2024-01-01', periods=1000, freq='h')
     df = pd.DataFrame({
         '用户ID': [f"U{np.random.randint(1000, 9999)}" for _ in range(1000)],
         '商品类别': np.random.choice(['美妆', '服饰', '数码', '食品', '家居', '运动'], 1000),
